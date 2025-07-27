@@ -1,16 +1,10 @@
-const {
-  getAllMenuItems,
-  getMenuItemById,
-  createMenuItem,
-  updateMenuItem,
-  deleteMenuItem,
-  toggleMenuItemAvailability,
-} = require('../models/menuModel');
+
+const MenuItem = require('../models/menuModel');
 
 // GET /menu
 const handleGetMenuItems = async (req, res) => {
   try {
-    const menuItems = await getAllMenuItems();
+    const menuItems = await MenuItem.find().sort({ category: 1, name: 1 });
     res.status(200).json(menuItems);
   } catch (err) {
     console.error('Error fetching menu items:', err);
@@ -22,7 +16,7 @@ const handleGetMenuItems = async (req, res) => {
 const handleGetMenuItemById = async (req, res) => {
   try {
     const { id } = req.params;
-    const menuItem = await getMenuItemById(id);
+    const menuItem = await MenuItem.findById(id);
     
     if (!menuItem) {
       return res.status(404).json({ error: 'Menu item not found.' });
@@ -45,15 +39,16 @@ const handleCreateMenuItem = async (req, res) => {
       return res.status(400).json({ error: 'Name and price are required.' });
     }
     
-    const newMenuItem = await createMenuItem({
+    const newMenuItem = new MenuItem({
       name,
       description,
       price: parseFloat(price),
       category,
-      available
+      available: available !== undefined ? available : true
     });
     
-    res.status(201).json(newMenuItem);
+    const savedMenuItem = await newMenuItem.save();
+    res.status(201).json(savedMenuItem);
   } catch (err) {
     console.error('Error creating menu item:', err);
     res.status(500).json({ error: 'Failed to create menu item.' });
@@ -71,13 +66,17 @@ const handleUpdateMenuItem = async (req, res) => {
       return res.status(400).json({ error: 'Name and price are required.' });
     }
     
-    const updatedMenuItem = await updateMenuItem(id, {
-      name,
-      description,
-      price: parseFloat(price),
-      category,
-      available
-    });
+    const updatedMenuItem = await MenuItem.findByIdAndUpdate(
+      id,
+      {
+        name,
+        description,
+        price: parseFloat(price),
+        category,
+        available
+      },
+      { new: true, runValidators: true }
+    );
     
     if (!updatedMenuItem) {
       return res.status(404).json({ error: 'Menu item not found.' });
@@ -94,7 +93,7 @@ const handleUpdateMenuItem = async (req, res) => {
 const handleDeleteMenuItem = async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedMenuItem = await deleteMenuItem(id);
+    const deletedMenuItem = await MenuItem.findByIdAndDelete(id);
     
     if (!deletedMenuItem) {
       return res.status(404).json({ error: 'Menu item not found.' });
@@ -111,11 +110,18 @@ const handleDeleteMenuItem = async (req, res) => {
 const handleToggleMenuItem = async (req, res) => {
   try {
     const { id } = req.params;
-    const toggledMenuItem = await toggleMenuItemAvailability(id);
     
-    if (!toggledMenuItem) {
+    // First get the current item to toggle its availability
+    const currentItem = await MenuItem.findById(id);
+    if (!currentItem) {
       return res.status(404).json({ error: 'Menu item not found.' });
     }
+    
+    const toggledMenuItem = await MenuItem.findByIdAndUpdate(
+      id,
+      { available: !currentItem.available },
+      { new: true }
+    );
     
     res.status(200).json(toggledMenuItem);
   } catch (err) {
