@@ -36,7 +36,7 @@ app.get('/', (req, res) => {
 const orderRoutes = require('./routes/orderRoutes');
 const menuRoutes = require('./routes/menuRoutes');
 app.use('/orders', orderRoutes);
-app.use('/menu', menuRoutes);
+app.use('/api/menu', menuRoutes);
 
 // Start Server
 app.listen(PORT, () => {
