@@ -9,4 +9,4 @@ const menuSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.model('MenuItem', menuSchema);
-};
+;
