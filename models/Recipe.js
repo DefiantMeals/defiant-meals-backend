@@ -75,11 +75,11 @@ const recipeSchema = new mongoose.Schema({
   },
   isPublic: {
     type: Boolean,
-    default: false
+    default: true
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Admin',
     required: true
   },
   rating: {
@@ -91,7 +91,7 @@ const recipeSchema = new mongoose.Schema({
   reviews: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+      ref: 'Admin'
     },
     rating: {
       type: Number,
@@ -114,5 +114,3 @@ recipeSchema.index({ title: 'text', description: 'text', tags: 'text' });
 recipeSchema.index({ createdBy: 1 });
 recipeSchema.index({ category: 1 });
 recipeSchema.index({ isPublic: 1 });
-
-module.exports = mongoose.model('Recipe', recipeSchema);
