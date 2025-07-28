@@ -1,140 +1,55 @@
+const Menu = require('../models/Menu');
 
-const MenuItem = require('../models/menuModel');
-
-// GET /menu
-const handleGetMenuItems = async (req, res) => {
+// GET /api/menu
+exports.getAllMenuItems = async (req, res) => {
   try {
-    const menuItems = await MenuItem.find().sort({ category: 1, name: 1 });
-    res.status(200).json(menuItems);
+    const menuItems = await Menu.find();
+    res.json(menuItems);
   } catch (err) {
-    console.error('Error fetching menu items:', err);
-    res.status(500).json({ error: 'Failed to fetch menu items.' });
+    res.status(500).json({ message: err.message });
   }
 };
 
-// GET /menu/:id
-const handleGetMenuItemById = async (req, res) => {
+// GET /api/menu/:id
+exports.getMenuItemById = async (req, res) => {
   try {
-    const { id } = req.params;
-    const menuItem = await MenuItem.findById(id);
-    
-    if (!menuItem) {
-      return res.status(404).json({ error: 'Menu item not found.' });
-    }
-    
-    res.status(200).json(menuItem);
+    const item = await Menu.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+    res.json(item);
   } catch (err) {
-    console.error('Error fetching menu item:', err);
-    res.status(500).json({ error: 'Failed to fetch menu item.' });
+    res.status(500).json({ message: err.message });
   }
 };
 
-// POST /menu
-const handleCreateMenuItem = async (req, res) => {
+// POST /api/menu
+exports.createMenuItem = async (req, res) => {
   try {
-    const { name, description, price, category, available } = req.body;
-    
-    // Basic validation
-    if (!name || !price) {
-      return res.status(400).json({ error: 'Name and price are required.' });
-    }
-    
-    const newMenuItem = new MenuItem({
-      name,
-      description,
-      price: parseFloat(price),
-      category,
-      available: available !== undefined ? available : true
-    });
-    
-    const savedMenuItem = await newMenuItem.save();
-    res.status(201).json(savedMenuItem);
+    const newItem = new Menu(req.body);
+    await newItem.save();
+    res.status(201).json(newItem);
   } catch (err) {
-    console.error('Error creating menu item:', err);
-    res.status(500).json({ error: 'Failed to create menu item.' });
+    res.status(400).json({ message: err.message });
   }
 };
 
-// PUT /menu/:id
-const handleUpdateMenuItem = async (req, res) => {
+// PUT /api/menu/:id
+exports.updateMenuItem = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { name, description, price, category, available } = req.body;
-    
-    // Basic validation
-    if (!name || !price) {
-      return res.status(400).json({ error: 'Name and price are required.' });
-    }
-    
-    const updatedMenuItem = await MenuItem.findByIdAndUpdate(
-      id,
-      {
-        name,
-        description,
-        price: parseFloat(price),
-        category,
-        available
-      },
-      { new: true, runValidators: true }
-    );
-    
-    if (!updatedMenuItem) {
-      return res.status(404).json({ error: 'Menu item not found.' });
-    }
-    
-    res.status(200).json(updatedMenuItem);
+    const updatedItem = await Menu.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!updatedItem) return res.status(404).json({ message: 'Item not found' });
+    res.json(updatedItem);
   } catch (err) {
-    console.error('Error updating menu item:', err);
-    res.status(500).json({ error: 'Failed to update menu item.' });
+    res.status(400).json({ message: err.message });
   }
 };
 
-// DELETE /menu/:id
-const handleDeleteMenuItem = async (req, res) => {
+// DELETE /api/menu/:id
+exports.deleteMenuItem = async (req, res) => {
   try {
-    const { id } = req.params;
-    const deletedMenuItem = await MenuItem.findByIdAndDelete(id);
-    
-    if (!deletedMenuItem) {
-      return res.status(404).json({ error: 'Menu item not found.' });
-    }
-    
-    res.status(200).json({ message: 'Menu item deleted successfully.', item: deletedMenuItem });
+    const deletedItem = await Menu.findByIdAndDelete(req.params.id);
+    if (!deletedItem) return res.status(404).json({ message: 'Item not found' });
+    res.json({ message: 'Item deleted' });
   } catch (err) {
-    console.error('Error deleting menu item:', err);
-    res.status(500).json({ error: 'Failed to delete menu item.' });
+    res.status(500).json({ message: err.message });
   }
-};
-
-// PATCH /menu/:id/toggle
-const handleToggleMenuItem = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    // First get the current item to toggle its availability
-    const currentItem = await MenuItem.findById(id);
-    if (!currentItem) {
-      return res.status(404).json({ error: 'Menu item not found.' });
-    }
-    
-    const toggledMenuItem = await MenuItem.findByIdAndUpdate(
-      id,
-      { available: !currentItem.available },
-      { new: true }
-    );
-    
-    res.status(200).json(toggledMenuItem);
-  } catch (err) {
-    console.error('Error toggling menu item:', err);
-    res.status(500).json({ error: 'Failed to toggle menu item availability.' });
-  }
-};
-
-module.exports = {
-  handleGetMenuItems,
-  handleGetMenuItemById,
-  handleCreateMenuItem,
-  handleUpdateMenuItem,
-  handleDeleteMenuItem,
-  handleToggleMenuItem,
 };

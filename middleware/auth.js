@@ -1,44 +1,36 @@
 // middleware/auth.js
 const jwt = require('jsonwebtoken');
 
-const auth = (req, res, next) => {
+const authenticateAdmin = (req, res, next) => {
   try {
-    // Get token from Authorization header
     const token = req.header('Authorization')?.replace('Bearer ', '');
 
     if (!token) {
-      return res.status(401).json({ 
-        message: 'No token provided, access denied' 
-      });
+      return res.status(401).json({ message: 'No token provided, access denied' });
     }
 
-    // Verify the token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Add user ID to request object so routes can access it
+
+    if (!decoded.isAdmin) {
+      return res.status(403).json({ message: 'Access denied: admin credentials required' });
+    }
+
     req.userId = decoded.userId;
-    
-    // Continue to the next middleware/route
+    req.isAdmin = true;
     next();
 
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ 
-        message: 'Token expired, please login again' 
-      });
+      return res.status(401).json({ message: 'Token expired, please login again' });
     }
-    
+
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
-        message: 'Invalid token, access denied' 
-      });
+      return res.status(401).json({ message: 'Invalid token, access denied' });
     }
 
     console.error('Auth middleware error:', error);
-    return res.status(500).json({ 
-      message: 'Server error in authentication' 
-    });
+    return res.status(500).json({ message: 'Server error during authentication' });
   }
 };
 
-module.exports = auth;
+module.exports = authenticateAdmin;
