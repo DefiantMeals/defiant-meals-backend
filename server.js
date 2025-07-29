@@ -18,8 +18,9 @@ app.use('/api/orders', require('./routes/orderRoutes'));
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  dbName: 'defiantmeals' // ✅ ensures writes go to the correct database
 })
-.then(() => console.log('MongoDB connected successfully'))
+.then(() => console.log('MongoDB connected successfully to defiantmeals'))
 .catch((err) => console.error('MongoDB connection error:', err));
 
 // Health check

@@ -53,3 +53,25 @@ exports.deleteMenuItem = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// PATCH /api/menu/:id/toggle
+exports.toggleMenuItemAvailability = async (req, res) => {
+  try {
+    const menuItem = await Menu.findById(req.params.id);
+    if (!menuItem) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    menuItem.available = !menuItem.available;
+    await menuItem.save();
+
+    res.json({
+      success: true,
+      message: `Availability toggled to ${menuItem.available}`,
+      item: menuItem
+    });
+  } catch (err) {
+    console.error('Error toggling availability:', err);
+    res.status(500).json({ message: 'Server error while toggling availability' });
+  }
+};
