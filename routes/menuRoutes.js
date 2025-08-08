@@ -5,8 +5,7 @@ const {
   getMenuItemById,
   createMenuItem,
   updateMenuItem,
-  deleteMenuItem,
-  toggleMenuItemAvailability // 👈 added here
+  deleteMenuItem
 } = require('../controllers/menuController');
 
 // Public CRUD for now
@@ -15,8 +14,5 @@ router.get('/:id', getMenuItemById);
 router.post('/', createMenuItem);
 router.put('/:id', updateMenuItem);
 router.delete('/:id', deleteMenuItem);
-
-// Toggle availability
-router.patch('/:id/toggle', toggleMenuItemAvailability); // 👈 new route
 
 module.exports = router;
