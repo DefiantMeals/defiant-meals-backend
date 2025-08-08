@@ -1,4 +1,3 @@
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -81,13 +80,14 @@ app.get('/admin/check', (req, res) => {
   }
 });
 
+// TEMPORARILY COMMENTED OUT - these routes have issues we'll fix later
 // Public Routes (no authentication needed)
-app.use('/api/menu', require('./routes/menuRoutes'));
-app.use('/api/orders', require('./routes/orderRoutes'));
+// app.use('/api/menu', require('./routes/menuRoutes'));
+// app.use('/api/orders', require('./routes/orderRoutes'));
 
 // Protected Admin Routes (authentication required)
-app.use('/api/admin/menu', requireAuth, require('./routes/menuRoutes'));
-app.use('/api/admin/orders', requireAuth, require('./routes/orderRoutes'));
+// app.use('/api/admin/menu', requireAuth, require('./routes/menuRoutes'));
+// app.use('/api/admin/orders', requireAuth, require('./routes/orderRoutes'));
 
 // Database Connection
 mongoose.connect(process.env.MONGODB_URI, {
@@ -113,8 +113,8 @@ app.get('/', (req, res) => {
     message: 'Defiant Meals Backend API',
     endpoints: {
       login: 'POST /admin/login',
-      public_menu: 'GET /api/menu',
-      admin_menu: 'GET /api/admin/menu (requires auth)',
+      logout: 'POST /admin/logout',
+      check: 'GET /admin/check',
       health: 'GET /api/health'
     }
   });
