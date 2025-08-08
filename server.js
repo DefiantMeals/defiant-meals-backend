@@ -82,7 +82,23 @@ app.get('/admin/check', (req, res) => {
 
 // TEMPORARILY COMMENTED OUT - these routes have issues we'll fix later
 // Public Routes (no authentication needed)
-// app.use('/api/menu', require('./routes/menuRoutes'));
+ // Test route
+// Simple working menu route (no database needed for now)
+app.get('/api/menu', (req, res) => {
+  res.json({
+    success: true,
+    data: [
+      {
+        id: 1,
+        name: "Sample Menu Item",
+        category: "main",
+        price: 15.99,
+        description: "A delicious sample item",
+        available: true
+      }
+    ]
+  });
+});
 // app.use('/api/orders', require('./routes/orderRoutes'));
 
 // Protected Admin Routes (authentication required)
