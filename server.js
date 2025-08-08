@@ -85,18 +85,7 @@ app.get('/admin/check', (req, res) => {
  // Test route
 // Simple working menu route (no database needed for now)
 // Simple working menu route (return just the array)
-app.get('/api/menu', (req, res) => {
-  res.json([
-    {
-      id: 1,
-      name: "Sample Menu Item",
-      category: "main",
-      price: 15.99,
-      description: "A delicious sample item",
-      available: true
-    }
-  ]);
-});
+app.use('/api/menu', require('./routes/menuRoutes'));
 // app.use('/api/orders', require('./routes/orderRoutes'));
 
 // Protected Admin Routes (authentication required)
