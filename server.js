@@ -84,20 +84,18 @@ app.get('/admin/check', (req, res) => {
 // Public Routes (no authentication needed)
  // Test route
 // Simple working menu route (no database needed for now)
+// Simple working menu route (return just the array)
 app.get('/api/menu', (req, res) => {
-  res.json({
-    success: true,
-    data: [
-      {
-        id: 1,
-        name: "Sample Menu Item",
-        category: "main",
-        price: 15.99,
-        description: "A delicious sample item",
-        available: true
-      }
-    ]
-  });
+  res.json([
+    {
+      id: 1,
+      name: "Sample Menu Item",
+      category: "main",
+      price: 15.99,
+      description: "A delicious sample item",
+      available: true
+    }
+  ]);
 });
 // app.use('/api/orders', require('./routes/orderRoutes'));
 
