@@ -7,7 +7,7 @@ const menuSchema = new mongoose.Schema(
     price: { type: Number, required: true },
     description: { type: String },
     available: { type: Boolean, default: true }, // Toggleable availability
-    imageUrl: { type: String }
+    imageUrl: { type: String }, // Added image URL field
   },
   { timestamps: true }
 );
