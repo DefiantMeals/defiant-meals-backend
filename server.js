@@ -94,8 +94,6 @@ app.use('/api/menu', require('./routes/menuRoutes'));
 
 // Database Connection
 mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
   dbName: 'defiantmeals'
 })
 .then(() => console.log('MongoDB connected successfully to defiantmeals'))
