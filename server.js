@@ -86,7 +86,7 @@ app.get('/admin/check', (req, res) => {
 // Simple working menu route (no database needed for now)
 // Simple working menu route (return just the array)
 app.use('/api/menu', require('./routes/menuRoutes'));
-// app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/orders', require('./routes/orderRoutes'));
 
 // Protected Admin Routes (authentication required)
 // app.use('/api/admin/menu', requireAuth, require('./routes/menuRoutes'));
