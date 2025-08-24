@@ -5,7 +5,8 @@ const {
   getOrderById,
   createOrder,
   updateOrder,
-  deleteOrder
+  deleteOrder,
+  updateOrderStatus
 } = require('../controllers/orderController');
 
 // Public CRUD for now
@@ -13,6 +14,7 @@ router.get('/', getAllOrders);
 router.get('/:id', getOrderById);
 router.post('/', createOrder);
 router.put('/:id', updateOrder);
+router.put('/:id/status', updateOrderStatus);
 router.delete('/:id', deleteOrder);
 
 module.exports = router;
