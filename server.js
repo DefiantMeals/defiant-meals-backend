@@ -11,7 +11,14 @@ const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'defiant2024'; // Change this to something secure
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://defiant-mealprep-frontend.netlify.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // Simple session tracking (in memory - for development only)
