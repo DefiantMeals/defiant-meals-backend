@@ -40,7 +40,10 @@ exports.createOrder = async (req, res) => {
       customerName: req.body.customer.name,
       customerEmail: req.body.customer.email,
       customerPhone: req.body.customer.phone,
-      items: req.body.items,
+      items: req.body.items.map(item => ({
+        menuItemId: item.id,
+        quantity: item.quantity
+      })),
       totalAmount: req.body.total,
       subtotal: req.body.subtotal,
       tax: req.body.tax,
