@@ -95,6 +95,14 @@ app.get('/admin/check', (req, res) => {
  // Test route
 // Simple working menu route (no database needed for now)
 // Simple working menu route (return just the array)
+// Handle preflight requests explicitly
+app.options('/api/*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', 'https://defiant-mealprep-frontend.netlify.app');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 app.use('/api/menu', require('./routes/menuRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 
