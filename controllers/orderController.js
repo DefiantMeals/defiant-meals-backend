@@ -35,10 +35,27 @@ exports.getOrderById = async (req, res) => {
 // POST /api/orders
 exports.createOrder = async (req, res) => {
   try {
-    const newOrder = new Order(req.body);
+    // Transform frontend data structure to match Order model
+    const orderData = {
+      customerName: req.body.customer.name,
+      customerEmail: req.body.customer.email,
+      customerPhone: req.body.customer.phone,
+      items: req.body.items,
+      totalAmount: req.body.total,
+      subtotal: req.body.subtotal,
+      tax: req.body.tax,
+      pickupDate: req.body.pickupDate,
+      pickupTime: req.body.pickupTime,
+      paymentMethod: req.body.paymentMethod,
+      status: req.body.status || 'confirmed',
+      orderDate: req.body.orderDate
+    };
+
+    const newOrder = new Order(orderData);
     await newOrder.save();
     res.status(201).json(newOrder);
   } catch (err) {
+    console.error('Order creation error:', err);
     res.status(400).json({ message: err.message });
   }
 };

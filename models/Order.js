@@ -1,8 +1,7 @@
-const mongoose = require('mongoose');
-
 const orderSchema = new mongoose.Schema({
   customerName: { type: String, required: true },
   customerEmail: { type: String, required: true },
+  customerPhone: { type: String },
   items: [
     {
       menuItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'Menu', required: true },
@@ -10,7 +9,13 @@ const orderSchema = new mongoose.Schema({
     }
   ],
   totalAmount: { type: Number, required: true },
-  status: { type: String, default: 'Pending' }
+  subtotal: { type: Number },
+  tax: { type: Number },
+  pickupDate: { type: String },
+  pickupTime: { type: String },
+  paymentMethod: { type: String },
+  status: { type: String, default: 'confirmed' },
+  orderDate: { type: Date, default: Date.now }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);
