@@ -10,13 +10,13 @@ router.get('/', async (req, res) => {
     // If no schedule exists, create default one
     if (!schedule) {
       schedule = new Schedule({
-        monday: { open: false, timeSlots: [] },
-        tuesday: { open: false, timeSlots: [] },
-        wednesday: { open: false, timeSlots: [] },
-        thursday: { open: false, timeSlots: [] },
-        friday: { open: false, timeSlots: [] },
-        saturday: { open: false, timeSlots: [] },
-        sunday: { open: false, timeSlots: [] }
+        monday: { open: false, morningStart: '08:00', morningEnd: '12:00', eveningStart: '16:00', eveningEnd: '20:00' },
+        tuesday: { open: false, morningStart: '08:00', morningEnd: '12:00', eveningStart: '16:00', eveningEnd: '20:00' },
+        wednesday: { open: false, morningStart: '08:00', morningEnd: '12:00', eveningStart: '16:00', eveningEnd: '20:00' },
+        thursday: { open: false, morningStart: '08:00', morningEnd: '12:00', eveningStart: '16:00', eveningEnd: '20:00' },
+        friday: { open: false, morningStart: '08:00', morningEnd: '12:00', eveningStart: '16:00', eveningEnd: '20:00' },
+        saturday: { open: false, morningStart: '08:00', morningEnd: '12:00', eveningStart: '16:00', eveningEnd: '20:00' },
+        sunday: { open: false, morningStart: '08:00', morningEnd: '12:00', eveningStart: '16:00', eveningEnd: '20:00' }
       });
       await schedule.save();
     }

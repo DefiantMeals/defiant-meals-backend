@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 5000;
 // Simple admin credentials
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'defiant2024'; // Change this to something secure
-
+const scheduleRoutes = require('./routes/scheduleRoutes');
 // Middleware
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -23,7 +23,7 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json());
-
+app.use('/api/schedule', scheduleRoutes);
 // Simple session tracking (in memory - for development only)
 const activeSessions = new Set();
 
