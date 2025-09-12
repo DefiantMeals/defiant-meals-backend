@@ -9,9 +9,15 @@ const {
   updateMenuItem,
   deleteMenuItem,
   toggleMenuItemAvailability,
-  setMenuItemAvailability
+  setMenuItemAvailability,
+  // Add these new functions for customization
+  addFlavorOption,
+  addAddonOption,
+  removeFlavorOption,
+  removeAddonOption
 } = require('../controllers/menuController');
 
+// EXISTING ROUTES (keep these as they are)
 // GET /api/menu - Get all menu items
 router.get('/', getAllMenuItems);
 
@@ -32,5 +38,18 @@ router.patch('/:id/toggle', toggleMenuItemAvailability);
 
 // PATCH /api/menu/:id/availability - Set specific availability status
 router.patch('/:id/availability', setMenuItemAvailability);
+
+// NEW ROUTES FOR FLAVOR AND ADDON MANAGEMENT
+// POST /api/menu/:id/flavors - Add flavor option to menu item
+router.post('/:id/flavors', addFlavorOption);
+
+// POST /api/menu/:id/addons - Add addon option to menu item
+router.post('/:id/addons', addAddonOption);
+
+// DELETE /api/menu/:id/flavors/:flavorId - Remove flavor option
+router.delete('/:id/flavors/:flavorId', removeFlavorOption);
+
+// DELETE /api/menu/:id/addons/:addonId - Remove addon option
+router.delete('/:id/addons/:addonId', removeAddonOption);
 
 module.exports = router;

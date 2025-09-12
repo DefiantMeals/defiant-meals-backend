@@ -213,3 +213,205 @@ exports.setMenuItemAvailability = async (req, res) => {
     });
   }
 };
+
+// NEW FUNCTIONS FOR FLAVOR AND ADDON MANAGEMENT
+
+// ADD FLAVOR OPTION TO MENU ITEM
+exports.addFlavorOption = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const flavorData = req.body;
+
+    // Validate required fields
+    if (!flavorData.name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Flavor name is required'
+      });
+    }
+
+    const menuItem = await Menu.findById(id);
+    if (!menuItem) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Menu item not found' 
+      });
+    }
+
+    // Check if flavor already exists
+    const existingFlavor = menuItem.flavorOptions.find(
+      flavor => flavor.name.toLowerCase() === flavorData.name.toLowerCase()
+    );
+
+    if (existingFlavor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Flavor option already exists'
+      });
+    }
+
+    menuItem.flavorOptions.push(flavorData);
+    menuItem.allowFlavorCustomization = true;
+    await menuItem.save();
+
+    res.json({
+      success: true,
+      data: menuItem,
+      message: 'Flavor option added successfully'
+    });
+  } catch (error) {
+    console.error('Error adding flavor option:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to add flavor option' 
+    });
+  }
+};
+
+// ADD ADDON OPTION TO MENU ITEM
+exports.addAddonOption = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const addonData = req.body;
+
+    // Validate required fields
+    if (!addonData.name || addonData.price === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Addon name and price are required'
+      });
+    }
+
+    const menuItem = await Menu.findById(id);
+    if (!menuItem) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Menu item not found' 
+      });
+    }
+
+    // Check if addon already exists
+    const existingAddon = menuItem.addonOptions.find(
+      addon => addon.name.toLowerCase() === addonData.name.toLowerCase()
+    );
+
+    if (existingAddon) {
+      return res.status(400).json({
+        success: false,
+        error: 'Add-on option already exists'
+      });
+    }
+
+    menuItem.addonOptions.push(addonData);
+    menuItem.allowAddonCustomization = true;
+    await menuItem.save();
+
+    res.json({
+      success: true,
+      data: menuItem,
+      message: 'Add-on option added successfully'
+    });
+  } catch (error) {
+    console.error('Error adding addon option:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to add addon option' 
+    });
+  }
+};
+
+// REMOVE FLAVOR OPTION FROM MENU ITEM
+exports.removeFlavorOption = async (req, res) => {
+  try {
+    const { id, flavorId } = req.params;
+
+    const menuItem = await Menu.findById(id);
+    if (!menuItem) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Menu item not found' 
+      });
+    }
+
+    // Remove the flavor option
+    const flavorIndex = menuItem.flavorOptions.findIndex(
+      flavor => flavor._id.toString() === flavorId
+    );
+
+    if (flavorIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        error: 'Flavor option not found'
+      });
+    }
+
+    menuItem.flavorOptions.splice(flavorIndex, 1);
+
+    // If no more flavors, disable flavor customization
+    if (menuItem.flavorOptions.length === 0) {
+      menuItem.allowFlavorCustomization = false;
+    }
+
+    await menuItem.save();
+
+    res.json({
+      success: true,
+      data: menuItem,
+      message: 'Flavor option removed successfully'
+    });
+  } catch (error) {
+    console.error('Error removing flavor option:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to remove flavor option' 
+    });
+  }
+};
+
+// REMOVE ADDON OPTION FROM MENU ITEM
+exports.removeAddonOption = async (req, res) => {
+  try {
+    const { id, addonId } = req.params;
+
+    const menuItem = await Menu.findById(id);
+    if (!menuItem) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Menu item not found' 
+      });
+    }
+
+    // Remove the addon option
+    const addonIndex = menuItem.addonOptions.findIndex(
+      addon => addon._id.toString() === addonId
+    );
+
+    if (addonIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        error: 'Add-on option not found'
+      });
+    }
+
+    menuItem.addonOptions.splice(addonIndex, 1);
+
+    // If no more addons, disable addon customization
+    if (menuItem.addonOptions.length === 0) {
+      menuItem.allowAddonCustomization = false;
+    }
+
+    await menuItem.save();
+
+    res.json({
+      success: true,
+      data: menuItem,
+      message: 'Add-on option removed successfully'
+    });
+  } catch (error) {
+    console.error('Error removing addon option:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to remove addon option' 
+    });
+  }
+};
