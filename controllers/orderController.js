@@ -13,7 +13,6 @@ exports.getAllOrders = async (req, res) => {
     
     const orders = await Order.find(query)
       .sort({ createdAt: -1 }) // Most recent first
-      .populate('items.menuItemId')
       .populate('items.originalId', 'name category price');
     
     res.json(orders);
@@ -26,7 +25,6 @@ exports.getAllOrders = async (req, res) => {
 exports.getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate('items.menuItemId')
       .populate('items.originalId', 'name category price description');
     
     if (!order) return res.status(404).json({ message: 'Order not found' });
@@ -183,91 +181,80 @@ exports.deleteOrder = async (req, res) => {
   }
 };
 
-// GET ORDER SUMMARY (for meal prep planning)
+// GET ORDER SUMMARY - SIMPLIFIED WORKING VERSION
 exports.getOrderSummary = async (req, res) => {
   try {
-    const { days = 7 } = req.query;
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - parseInt(days));
-
-    const orders = await Order.find({
-      orderDate: {
-        $gte: startDate,
-        $lte: endDate
-      },
-      status: { $nin: ['cancelled'] } // Exclude cancelled orders
-    }).populate('items.originalId', 'name category');
-
-    // Calculate summary data
-    const itemSummary = {};
-    let totalOrders = orders.length;
-    let totalRevenue = 0;
-
-    orders.forEach(order => {
-      totalRevenue += order.totalAmount || order.total || 0;
+    const { days, startDate, endDate, type } = req.query;
+    let dateFilter = {};
+    
+    // Handle old format (days parameter)
+    if (days && !startDate && !endDate) {
+      const today = new Date();
+      const pastDate = new Date();
+      pastDate.setDate(today.getDate() - parseInt(days));
       
-      if (order.items && Array.isArray(order.items)) {
-        order.items.forEach(item => {
-          const itemKey = `${item.name}${item.customizations?.flavor ? ` (${item.customizations.flavor})` : ''}`;
-          
-          if (!itemSummary[itemKey]) {
-            itemSummary[itemKey] = {
-              name: item.name,
-              quantity: 0,
-              flavor: item.customizations?.flavor || null,
-              addons: new Set(),
-              totalRevenue: 0,
-              originalId: item.originalId
-            };
+      dateFilter.createdAt = {
+        $gte: pastDate,
+        $lte: today
+      };
+      
+      // Get orders
+      const orders = await Order.find(dateFilter);
+      const totalOrders = orders.length;
+      const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || order.total || 0), 0);
+      
+      // Old format response
+      return res.json({
+        success: true,
+        data: {
+          totalOrders,
+          totalRevenue,
+          items: [],
+          dateRange: {
+            start: pastDate.toISOString().split('T')[0],
+            end: today.toISOString().split('T')[0]
           }
-          
-          itemSummary[itemKey].quantity += item.quantity || 1;
-          itemSummary[itemKey].totalRevenue += (item.price || 0) * (item.quantity || 1);
-          
-          // Track popular addons
-          if (item.customizations?.addons && Array.isArray(item.customizations.addons)) {
-            item.customizations.addons.forEach(addon => {
-              itemSummary[itemKey].addons.add(addon);
-            });
-          }
-        });
-      }
+        }
+      });
+    }
+    
+    // Handle new format (calendar interface)
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      
+      // Always use createdAt for simplicity - both order and pickup filtering
+      dateFilter.createdAt = {
+        $gte: start,
+        $lte: end
+      };
+      
+      // Get orders
+      const orders = await Order.find(dateFilter);
+      const totalOrders = orders.length;
+      const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || order.total || 0), 0);
+      const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      
+      // New format response
+      return res.json({
+        totalOrders,
+        totalRevenue,
+        averageOrderValue
+      });
+    }
+    
+    // Missing parameters
+    res.status(400).json({ 
+      success: false,
+      error: 'Missing required parameters: provide either days OR startDate+endDate' 
     });
-
-    // Convert addon sets to arrays and sort items by quantity
-    const sortedItems = Object.values(itemSummary)
-      .map(item => ({
-        ...item,
-        addons: Array.from(item.addons)
-      }))
-      .sort((a, b) => b.quantity - a.quantity);
-
-    const summaryData = {
-      dateRange: {
-        start: startDate.toISOString().split('T')[0],
-        end: endDate.toISOString().split('T')[0],
-        days: parseInt(days)
-      },
-      totalOrders,
-      totalRevenue,
-      items: sortedItems,
-      ordersByStatus: {
-        pending: orders.filter(o => o.status === 'pending').length,
-        confirmed: orders.filter(o => o.status === 'confirmed').length,
-        completed: orders.filter(o => o.status === 'completed').length
-      }
-    };
-
-    res.json({
-      success: true,
-      data: summaryData
-    });
+    
   } catch (error) {
-    console.error('Error generating order summary:', error);
+    console.error('Summary error:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Failed to generate order summary' 
+      error: 'Failed to generate summary' 
     });
   }
 };
