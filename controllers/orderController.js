@@ -1,4 +1,5 @@
 const Order = require('../models/Order');
+const { sendOrderConfirmation, sendAdminNotification } = require('../services/emailService');
 
 // GET /api/orders (with optional date filtering)
 exports.getAllOrders = async (req, res) => {
@@ -80,7 +81,14 @@ exports.createOrder = async (req, res) => {
     // Populate the saved order for response
     const populatedOrder = await Order.findById(newOrder._id)
       .populate('items.originalId', 'name category price');
-
+    // Send email notifications
+    try {
+      await sendOrderConfirmation(populatedOrder);
+      await sendAdminNotification(populatedOrder);s
+    } catch (error) {
+      console.error('Error sending emails:', error);
+      // Don't fail the order if email fails
+    }
     res.status(201).json({
       success: true,
       data: populatedOrder,
