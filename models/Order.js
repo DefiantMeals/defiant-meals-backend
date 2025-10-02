@@ -45,7 +45,7 @@ const orderItemSchema = new mongoose.Schema({
 });
 
 const orderSchema = new mongoose.Schema({
-  // Keeping your existing structure but enhancing it
+  // Customer information
   customerName: { type: String, required: true },
   customerEmail: { type: String, required: true },
   customerPhone: { type: String },
@@ -57,24 +57,41 @@ const orderSchema = new mongoose.Schema({
     phone: { type: String }
   },
   
-  // Updated items structure
+  // Order items
   items: [orderItemSchema],
   
-  // New field for customer notes
+  // Customer notes
   customerNotes: {
     type: String,
     default: '',
     maxlength: 500
   },
   
-  // Keeping your existing fields
+  // Payment information
   totalAmount: { type: Number, required: true },
   subtotal: { type: Number },
   tax: { type: Number },
-  total: { type: Number }, // For frontend compatibility
-  pickupDate: { type: String },
-  pickupTime: { type: String },
+  total: { type: Number },
   paymentMethod: { type: String },
+  
+  // UPDATED: Pickup date as Date object instead of String
+  pickupDate: { 
+    type: Date, 
+    required: true,
+    validate: {
+      validator: function(date) {
+        // Validate that pickup date is at least 8 days in the future
+        const now = new Date();
+        const eightDaysFromNow = new Date(now);
+        eightDaysFromNow.setDate(now.getDate() + 8);
+        return date >= eightDaysFromNow;
+      },
+      message: 'Pickup date must be at least 8 days in advance'
+    }
+  },
+  pickupTime: { type: String },
+  
+  // Order status
   status: { type: String, default: 'confirmed' },
   orderDate: { type: Date, default: Date.now },
   
@@ -86,7 +103,36 @@ const orderSchema = new mongoose.Schema({
   preparationTime: {
     type: Number, // minutes
     default: 20
+  },
+  
+  // NEW: Flag for admin-created orders (bypasses 8-day validation)
+  isAdminOrder: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
+
+// Static method to validate pickup date is 8 days away
+orderSchema.statics.validatePickupDate = function(pickupDate) {
+  const now = new Date();
+  const pickup = new Date(pickupDate);
+  const daysUntilPickup = Math.ceil((pickup - now) / (1000 * 60 * 60 * 24));
+  
+  return {
+    isValid: daysUntilPickup >= 8,
+    daysUntilPickup: daysUntilPickup,
+    message: daysUntilPickup >= 8 
+      ? 'Valid pickup date' 
+      : `Pickup must be at least 8 days in advance. Selected date is only ${daysUntilPickup} days away.`
+  };
+};
+
+// Static method to calculate ordering deadline for a pickup date
+orderSchema.statics.getOrderingDeadline = function(pickupDate) {
+  const deadline = new Date(pickupDate);
+  deadline.setDate(deadline.getDate() - 8);
+  deadline.setHours(12, 0, 0, 0); // Noon on the deadline day
+  return deadline;
+};
 
 module.exports = mongoose.model('Order', orderSchema);

@@ -42,6 +42,18 @@ exports.getOrderById = async (req, res) => {
 // POST /api/orders
 exports.createOrder = async (req, res) => {
   try {
+    // Validate pickup date is at least 8 days in advance
+    if (req.body.pickupDate) {
+      const validation = Order.validatePickupDate(req.body.pickupDate);
+      if (!validation.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: validation.message,
+          daysUntilPickup: validation.daysUntilPickup
+        });
+      }
+    }
+
     // Handle both old and new data structures
     const orderData = {
       customerName: req.body.customer?.name || req.body.customerName,
@@ -68,7 +80,7 @@ exports.createOrder = async (req, res) => {
       subtotal: req.body.subtotal,
       tax: req.body.tax,
       total: req.body.total,
-      pickupDate: req.body.pickupDate,
+      pickupDate: req.body.pickupDate ? new Date(req.body.pickupDate) : null,
       pickupTime: req.body.pickupTime,
       paymentMethod: req.body.paymentMethod,
       status: req.body.status || 'confirmed',
@@ -81,14 +93,16 @@ exports.createOrder = async (req, res) => {
     // Populate the saved order for response
     const populatedOrder = await Order.findById(newOrder._id)
       .populate('items.originalId', 'name category price');
+    
     // Send email notifications
     try {
       await sendOrderConfirmation(populatedOrder);
-      await sendAdminNotification(populatedOrder);s
+      await sendAdminNotification(populatedOrder);
     } catch (error) {
       console.error('Error sending emails:', error);
       // Don't fail the order if email fails
     }
+    
     res.status(201).json({
       success: true,
       data: populatedOrder,
@@ -99,6 +113,98 @@ exports.createOrder = async (req, res) => {
     res.status(400).json({ 
       success: false,
       message: err.message 
+    });
+  }
+};
+
+// POST /api/orders/admin - Admin creates order (bypasses 8-day rule)
+exports.createAdminOrder = async (req, res) => {
+  try {
+    // Handle both old and new data structures
+    const orderData = {
+      customerName: req.body.customer?.name || req.body.customerName,
+      customerEmail: req.body.customer?.email || req.body.customerEmail,
+      customerPhone: req.body.customer?.phone || req.body.customerPhone,
+      customer: req.body.customer || {
+        name: req.body.customerName,
+        email: req.body.customerEmail,
+        phone: req.body.customerPhone
+      },
+      items: req.body.items.map(item => ({
+        id: item.id,
+        originalId: item.originalId || item.id,
+        name: item.name,
+        price: item.price,
+        basePrice: item.basePrice || item.price,
+        quantity: item.quantity,
+        selectedFlavor: item.selectedFlavor || null,
+        selectedAddons: item.selectedAddons || [],
+        customizations: item.customizations || {}
+      })),
+      customerNotes: req.body.customerNotes || '',
+      totalAmount: req.body.total || req.body.totalAmount,
+      subtotal: req.body.subtotal,
+      tax: req.body.tax,
+      total: req.body.total,
+      pickupDate: req.body.pickupDate ? new Date(req.body.pickupDate) : null,
+      pickupTime: req.body.pickupTime,
+      paymentMethod: req.body.paymentMethod,
+      status: req.body.status || 'confirmed',
+      orderDate: req.body.orderDate || new Date(),
+      isAdminOrder: true, // BYPASS 8-day validation
+      adminNotes: req.body.adminNotes || 'Manually created by admin'
+    };
+
+    const newOrder = new Order(orderData);
+    // Save with validation disabled for pickup date
+    await newOrder.save({ validateBeforeSave: false });
+
+    // Populate the saved order for response
+    const populatedOrder = await Order.findById(newOrder._id)
+      .populate('items.originalId', 'name category price');
+    
+    // Send email notifications
+    try {
+      await sendOrderConfirmation(populatedOrder);
+      await sendAdminNotification(populatedOrder);
+    } catch (error) {
+      console.error('Error sending emails:', error);
+      // Don't fail the order if email fails
+    }
+    
+    res.status(201).json({
+      success: true,
+      data: populatedOrder,
+      message: 'Admin order created successfully'
+    });
+  } catch (err) {
+    console.error('Admin order creation error:', err);
+    res.status(400).json({ 
+      success: false,
+      message: err.message 
+    });
+  }
+};
+
+// GET /api/orders/validate-pickup/:date - Check if pickup date is available
+exports.validatePickupDate = async (req, res) => {
+  try {
+    const pickupDate = req.params.date;
+    const validation = Order.validatePickupDate(pickupDate);
+    const deadline = Order.getOrderingDeadline(pickupDate);
+    
+    res.json({
+      success: true,
+      isValid: validation.isValid,
+      daysUntilPickup: validation.daysUntilPickup,
+      message: validation.message,
+      orderingDeadline: deadline,
+      pickupDate: new Date(pickupDate)
+    });
+  } catch (err) {
+    res.status(400).json({
+      success: false,
+      message: err.message
     });
   }
 };
