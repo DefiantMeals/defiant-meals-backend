@@ -74,19 +74,26 @@ const orderSchema = new mongoose.Schema({
   total: { type: Number },
   paymentMethod: { type: String },
   
-  // UPDATED: Pickup date as Date object instead of String
+  // Pickup date with cutoff validation
   pickupDate: { 
     type: Date, 
     required: true,
     validate: {
       validator: function(date) {
-        // Validate that pickup date is at least 8 days in the future
+        // Skip validation for admin orders
+        if (this.isAdminOrder) {
+          return true;
+        }
+        
+        // Check if ordering deadline has passed
+        const deadline = mongoose.model('Order').getOrderingDeadline(date);
         const now = new Date();
-        const eightDaysFromNow = new Date(now);
-        eightDaysFromNow.setDate(now.getDate() + 8);
-        return date >= eightDaysFromNow;
+        return now < deadline;
       },
-      message: 'Pickup date must be at least 8 days in advance'
+      message: function(props) {
+        const deadline = mongoose.model('Order').getOrderingDeadline(props.value);
+        return `Ordering deadline (${deadline.toLocaleString()}) has passed for this pickup date`;
+      }
     }
   },
   pickupTime: { type: String },
@@ -105,34 +112,59 @@ const orderSchema = new mongoose.Schema({
     default: 20
   },
   
-  // NEW: Flag for admin-created orders (bypasses 8-day validation)
+  // Flag for admin-created orders (bypasses validation)
   isAdminOrder: {
     type: Boolean,
     default: false
   }
 }, { timestamps: true });
 
-// Static method to validate pickup date is 8 days away
+// Static method to calculate ordering deadline for a pickup date
+orderSchema.statics.getOrderingDeadline = function(pickupDate) {
+  const pickup = new Date(pickupDate);
+  const deadline = new Date(pickup);
+  
+  // Go back 8 days from pickup
+  deadline.setDate(pickup.getDate() - 8);
+  
+  // Set to noon (12:00 PM) on that day
+  deadline.setHours(12, 0, 0, 0);
+  
+  return deadline;
+};
+
+// Static method to validate if ordering is still open for a pickup date
 orderSchema.statics.validatePickupDate = function(pickupDate) {
   const now = new Date();
   const pickup = new Date(pickupDate);
+  const deadline = this.getOrderingDeadline(pickupDate);
+  
+  // Check if we're past the deadline
+  const isValid = now < deadline;
+  
+  // Calculate days until pickup for messaging
   const daysUntilPickup = Math.ceil((pickup - now) / (1000 * 60 * 60 * 24));
   
+  // Calculate hours until deadline for better messaging
+  const hoursUntilDeadline = Math.ceil((deadline - now) / (1000 * 60 * 60));
+  
+  let message;
+  if (isValid) {
+    if (hoursUntilDeadline <= 24) {
+      message = `Ordering closes in ${hoursUntilDeadline} hours (${deadline.toLocaleString()})`;
+    } else {
+      message = `Ordering closes at noon on ${deadline.toLocaleDateString()}`;
+    }
+  } else {
+    message = `Ordering closed on ${deadline.toLocaleDateString()} at noon. Please select a different pickup date.`;
+  }
+  
   return {
-    isValid: daysUntilPickup >= 8,
-    daysUntilPickup: daysUntilPickup,
-    message: daysUntilPickup >= 8 
-      ? 'Valid pickup date' 
-      : `Pickup must be at least 8 days in advance. Selected date is only ${daysUntilPickup} days away.`
+    isValid,
+    daysUntilPickup,
+    deadline,
+    message
   };
-};
-
-// Static method to calculate ordering deadline for a pickup date
-orderSchema.statics.getOrderingDeadline = function(pickupDate) {
-  const deadline = new Date(pickupDate);
-  deadline.setDate(deadline.getDate() - 8);
-  deadline.setHours(12, 0, 0, 0); // Noon on the deadline day
-  return deadline;
 };
 
 module.exports = mongoose.model('Order', orderSchema);
