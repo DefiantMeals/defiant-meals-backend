@@ -5,13 +5,24 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Send order confirmation to customer
 const sendOrderConfirmation = async (order) => {
   try {
+    // Handle both data structures
+    const customerEmail = order.customerEmail || order.customer?.email;
+    const customerName = order.customerName || order.customer?.name;
+    const customerPhone = order.customerPhone || order.customer?.phone;
+    const totalAmount = order.totalAmount || order.total;
+
+    if (!customerEmail) {
+      console.error('No customer email found in order');
+      return false;
+    }
+
     const itemsList = order.items.map(item => 
       `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`
     ).join('\n');
 
     const emailData = {
       from: 'Defiant Meals <onboarding@resend.dev>',
-      to: [order.customerEmail],
+      to: [customerEmail],
       subject: `Order Confirmation #${order._id.toString().slice(-8)}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -19,10 +30,10 @@ const sendOrderConfirmation = async (order) => {
           
           <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <h2>Order #${order._id.toString().slice(-8)}</h2>
-            <p><strong>Customer:</strong> ${order.customerName}</p>
-            <p><strong>Email:</strong> ${order.customerEmail}</p>
-            <p><strong>Phone:</strong> ${order.customerPhone}</p>
-            <p><strong>Pickup Date:</strong> ${order.pickupDate}</p>
+            <p><strong>Customer:</strong> ${customerName}</p>
+            <p><strong>Email:</strong> ${customerEmail}</p>
+            <p><strong>Phone:</strong> ${customerPhone}</p>
+            <p><strong>Pickup Date:</strong> ${new Date(order.pickupDate).toLocaleDateString()}</p>
             <p><strong>Pickup Time:</strong> ${order.pickupTime}</p>
           </div>
 
@@ -30,7 +41,7 @@ const sendOrderConfirmation = async (order) => {
             <h3>Your Items:</h3>
             <pre style="font-family: monospace; background: #f1f5f9; padding: 15px; border-radius: 4px;">${itemsList}</pre>
             <hr style="margin: 20px 0;">
-            <p style="text-align: right; font-size: 18px;"><strong>Total: $${order.totalAmount.toFixed(2)}</strong></p>
+            <p style="text-align: right; font-size: 18px;"><strong>Total: $${totalAmount.toFixed(2)}</strong></p>
           </div>
 
           ${order.customerNotes ? `
@@ -43,11 +54,13 @@ const sendOrderConfirmation = async (order) => {
           <div style="text-align: center; margin: 30px 0; padding: 20px; background: #ecfdf5; border-radius: 8px;">
             <h3 style="color: #059669;">Thank You for Your Order!</h3>
             <p>We'll have your fresh meals ready for pickup at the scheduled time.</p>
+            <p style="margin-top: 15px; color: #6b7280;">Questions? Reply to this email or call us at 913-585-5126</p>
           </div>
         </div>
       `
     };
 
+    console.log('Attempting to send customer email to:', customerEmail);
     const { data, error } = await resend.emails.send(emailData);
     
     if (error) {
@@ -55,7 +68,7 @@ const sendOrderConfirmation = async (order) => {
       return false;
     }
     
-    console.log('Order confirmation sent to customer:', data.id);
+    console.log('Order confirmation sent to customer:', customerEmail, 'Email ID:', data.id);
     return true;
   } catch (error) {
     console.error('Error in sendOrderConfirmation:', error);
@@ -66,6 +79,12 @@ const sendOrderConfirmation = async (order) => {
 // Send new order notification to admin
 const sendAdminNotification = async (order) => {
   try {
+    // Handle both data structures
+    const customerEmail = order.customerEmail || order.customer?.email;
+    const customerName = order.customerName || order.customer?.name;
+    const customerPhone = order.customerPhone || order.customer?.phone;
+    const totalAmount = order.totalAmount || order.total;
+
     const itemsList = order.items.map(item => 
       `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`
     ).join('\n');
@@ -73,17 +92,17 @@ const sendAdminNotification = async (order) => {
     const emailData = {
       from: 'Defiant Meals <onboarding@resend.dev>',
       to: ['defiantmealsmenu@gmail.com'], 
-      subject: `🔔 New Order #${order._id.toString().slice(-8)} - $${order.totalAmount.toFixed(2)}`,
+      subject: `🔔 New Order #${order._id.toString().slice(-8)} - $${totalAmount.toFixed(2)}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h1 style="color: #dc2626; text-align: center;">🔔 New Order Received!</h1>
           
           <div style="background: #fee2e2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
             <h2>Order #${order._id.toString().slice(-8)}</h2>
-            <p><strong>Customer:</strong> ${order.customerName}</p>
-            <p><strong>Email:</strong> ${order.customerEmail}</p>
-            <p><strong>Phone:</strong> ${order.customerPhone}</p>
-            <p><strong>Pickup Date:</strong> ${order.pickupDate}</p>
+            <p><strong>Customer:</strong> ${customerName}</p>
+            <p><strong>Email:</strong> ${customerEmail}</p>
+            <p><strong>Phone:</strong> ${customerPhone}</p>
+            <p><strong>Pickup Date:</strong> ${new Date(order.pickupDate).toLocaleDateString()}</p>
             <p><strong>Pickup Time:</strong> ${order.pickupTime}</p>
             <p><strong>Payment:</strong> ${order.paymentMethod || 'Card'}</p>
           </div>
@@ -92,7 +111,7 @@ const sendAdminNotification = async (order) => {
             <h3>Order Items:</h3>
             <pre style="font-family: monospace; background: #f1f5f9; padding: 15px; border-radius: 4px;">${itemsList}</pre>
             <hr style="margin: 20px 0;">
-            <p style="text-align: right; font-size: 20px; color: #059669;"><strong>Total: $${order.totalAmount.toFixed(2)}</strong></p>
+            <p style="text-align: right; font-size: 20px; color: #059669;"><strong>Total: $${totalAmount.toFixed(2)}</strong></p>
           </div>
 
           ${order.customerNotes ? `
@@ -104,7 +123,7 @@ const sendAdminNotification = async (order) => {
 
           <div style="text-align: center; margin: 30px 0; padding: 20px; background: #eff6ff; border-radius: 8px;">
             <p style="font-size: 16px;">Check your admin dashboard to manage this order.</p>
-            <a href="https://defiant-mealprep-frontend.netlify.app/admin" style="display: inline-block; background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-top: 10px;">View Dashboard</a>
+            <a href="https://defiantmeals.com/admin" style="display: inline-block; background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; margin-top: 10px;">View Dashboard</a>
           </div>
         </div>
       `
