@@ -21,7 +21,7 @@ const sendOrderConfirmation = async (order) => {
     ).join('\n');
 
     const emailData = {
-      from: 'Defiant Meals <onboarding@resend.dev>',
+      from: 'Defiant Meals <orders@defiantmeals.com>',
       to: [customerEmail],
       subject: `Order Confirmation #${order._id.toString().slice(-8)}`,
       html: `
@@ -90,7 +90,7 @@ const sendAdminNotification = async (order) => {
     ).join('\n');
 
     const emailData = {
-      from: 'Defiant Meals <onboarding@resend.dev>',
+      from: 'Defiant Meals <orders@defiantmeals.com>',
       to: ['defiantmealsmenu@gmail.com'], 
       subject: `🔔 New Order #${order._id.toString().slice(-8)} - $${totalAmount.toFixed(2)}`,
       html: `
