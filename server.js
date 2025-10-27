@@ -100,7 +100,7 @@ app.get('/admin/check', (req, res) => {
 app.use('/api/menu', require('./routes/menuRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes'));
-
+app.use('/api/payments', require('./routes/paymentRoutes'));
 // Protected Admin Routes (authentication required)
 // app.use('/api/admin/menu', requireAuth, require('./routes/menuRoutes'));
 // app.use('/api/admin/orders', requireAuth, require('./routes/orderRoutes'));
