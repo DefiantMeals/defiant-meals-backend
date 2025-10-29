@@ -12,15 +12,13 @@ exports.createPaymentIntent = async (req, res) => {
 
     // Create a PaymentIntent with the order amount and currency
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount, // Amount in cents
+      amount: amount,
       currency: 'usd',
       receipt_email: customerEmail,
       metadata: {
         customerName: customerName
       },
-      automatic_payment_methods: {
-        enabled: true,
-      }
+      payment_method_types: ['card']
     });
 
     res.json({
