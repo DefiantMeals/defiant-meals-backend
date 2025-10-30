@@ -10,20 +10,25 @@ const PORT = process.env.PORT || 5000;
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'defiant2024'; // Change this to something secure
 const scheduleRoutes = require('./routes/scheduleRoutes');
-// Middleware
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', '*');
-  res.header('Access-Control-Allow-Headers', '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
+
+// CORS Middleware - MUST BE BEFORE OTHER MIDDLEWARE
+app.use(cors({
+  origin: ['https://defiantmeals.com', 'https://defiant-mealprep-frontend.netlify.app', 'http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Body parser middleware
 app.use(express.json());
+
+// Routes
 app.use('/api/schedule', scheduleRoutes);
+app.use('/api/menu', require('./routes/menuRoutes'));
+app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/categories', require('./routes/categoryRoutes'));
+app.use('/api/payments', require('./routes/paymentRoutes'));
+
 // Simple session tracking (in memory - for development only)
 const activeSessions = new Set();
 
@@ -89,21 +94,6 @@ app.get('/admin/check', (req, res) => {
     });
   }
 });
-
-// TEMPORARILY COMMENTED OUT - these routes have issues we'll fix later
-// Public Routes (no authentication needed)
- // Test route
-// Simple working menu route (no database needed for now)
-// Simple working menu route (return just the array)
-// Handle preflight requests explicitly
-
-app.use('/api/menu', require('./routes/menuRoutes'));
-app.use('/api/orders', require('./routes/orderRoutes'));
-app.use('/api/categories', require('./routes/categoryRoutes'));
-app.use('/api/payments', require('./routes/paymentRoutes'));
-// Protected Admin Routes (authentication required)
-// app.use('/api/admin/menu', requireAuth, require('./routes/menuRoutes'));
-// app.use('/api/admin/orders', requireAuth, require('./routes/orderRoutes'));
 
 // Database Connection
 mongoose.connect(process.env.MONGODB_URI, {
