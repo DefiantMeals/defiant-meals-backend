@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Order = require('../models/Order');
+const { sendOrderConfirmation, sendAdminNotification } = require('../utils/emailService');
 
 // Webhook endpoint - MUST use raw body for signature verification
 router.post('/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -42,7 +43,7 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
           items: cartItems.map(item => ({
             name: item.name,
             quantity: item.quantity,
-            price: 0 // We don't have individual prices in metadata, but total is in session.amount_total
+            price: 0 // We don't have individual prices in metadata
           })),
           totalAmount: session.amount_total / 100, // Convert from cents to dollars
           status: 'new',
@@ -50,7 +51,8 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
           paymentMethod: 'card',
           pickupDate: metadata.pickupDate || '',
           pickupTime: metadata.pickupTime || '',
-          specialInstructions: '',
+          specialInstructions: metadata.specialInstructions || '',
+          customerNotes: metadata.specialInstructions || '',
           stripeSessionId: session.id,
           stripePaymentIntentId: session.payment_intent
         });
@@ -58,8 +60,15 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         await newOrder.save();
         console.log('✅ Order created:', newOrder.orderId);
 
-        // TODO: Send email confirmation here
-        // await sendOrderConfirmationEmail(newOrder);
+        // Send email confirmations
+        try {
+          await sendOrderConfirmation(newOrder);
+          await sendAdminNotification(newOrder);
+          console.log('📧 Email confirmations sent successfully');
+        } catch (emailError) {
+          console.error('❌ Error sending emails:', emailError);
+          // Don't fail the webhook if emails fail
+        }
 
       } catch (error) {
         console.error('❌ Error creating order:', error);
