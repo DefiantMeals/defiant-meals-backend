@@ -15,6 +15,11 @@ router.post('/create-checkout-session', async (req, res) => {
       return res.status(400).json({ error: 'Missing required order information' });
     }
 
+    // Validate email specifically
+    if (!customerInfo.email || customerInfo.email.trim() === '') {
+      return res.status(400).json({ error: 'Valid email address is required' });
+    }
+
     // Create line items from cart
     const lineItems = cart.map(item => ({
       price_data: {
@@ -31,16 +36,16 @@ router.post('/create-checkout-session', async (req, res) => {
 
     // Create the checkout session
     const session = await stripe.checkout.sessions.create({
-      ui_mode: 'embedded', // THIS IS KEY FOR EMBEDDED CHECKOUT
+      ui_mode: 'embedded',
       mode: 'payment',
       line_items: lineItems,
-      customer_email: customerInfo.email,
+      customer_email: customerInfo.email.trim(), // Make sure email is trimmed
       metadata: {
-        customerName: customerInfo.name,
-        customerEmail: customerInfo.email,
-        customerPhone: customerInfo.phone,
-        pickupDate: pickupDetails.date,
-        pickupTime: pickupDetails.time,
+        customerName: customerInfo.name || '',
+        customerEmail: customerInfo.email || '',
+        customerPhone: customerInfo.phone || '',
+        pickupDate: pickupDetails.date || '',
+        pickupTime: pickupDetails.time || '',
         cartItems: JSON.stringify(cart),
         totalAmount: totalAmount.toString(),
       },
