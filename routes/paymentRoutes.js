@@ -30,6 +30,9 @@ router.post('/create-checkout-session', async (req, res) => {
       quantity: item.quantity,
     }));
 
+    // Create simplified cart summary for metadata (to stay under 500 char limit)
+    const cartSummary = cart.map(item => `${item.name} x${item.quantity}`).join(', ');
+
     // Create the checkout session - let Stripe collect email
     const sessionConfig = {
       ui_mode: 'embedded',
@@ -41,7 +44,7 @@ router.post('/create-checkout-session', async (req, res) => {
         customerPhone: customerInfo?.phone || '',
         pickupDate: pickupDetails?.date || '',
         pickupTime: pickupDetails?.time || '',
-        cartItems: JSON.stringify(cart),
+        cartSummary: cartSummary.substring(0, 450), // Truncate to be safe
         totalAmount: totalAmount.toString(),
       },
       return_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/order-confirmation?session_id={CHECKOUT_SESSION_ID}`,
