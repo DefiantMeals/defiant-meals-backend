@@ -1,6 +1,3 @@
-// BACKEND FILE: routes/paymentRoutes.js
-// REPLACE YOUR ENTIRE paymentRoutes.js FILE WITH THIS
-
 const express = require('express');
 const router = express.Router();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -11,13 +8,12 @@ router.post('/create-checkout-session', async (req, res) => {
     const { cart, customerInfo, pickupDetails, totalAmount } = req.body;
 
     // Validate required data
-    if (!cart || !customerInfo || !pickupDetails || !totalAmount) {
-      return res.status(400).json({ error: 'Missing required order information' });
+    if (!cart || cart.length === 0) {
+      return res.status(400).json({ error: 'Cart is empty' });
     }
 
-    // Validate email specifically
-    if (!customerInfo.email || customerInfo.email.trim() === '') {
-      return res.status(400).json({ error: 'Valid email address is required' });
+    if (!totalAmount || totalAmount <= 0) {
+      return res.status(400).json({ error: 'Invalid order amount' });
     }
 
     // Create line items from cart
@@ -34,23 +30,29 @@ router.post('/create-checkout-session', async (req, res) => {
       quantity: item.quantity,
     }));
 
-    // Create the checkout session
-    const session = await stripe.checkout.sessions.create({
+    // Create the checkout session - let Stripe collect email
+    const sessionConfig = {
       ui_mode: 'embedded',
       mode: 'payment',
       line_items: lineItems,
-      customer_email: customerInfo.email.trim(), // Make sure email is trimmed
       metadata: {
-        customerName: customerInfo.name || '',
-        customerEmail: customerInfo.email || '',
-        customerPhone: customerInfo.phone || '',
-        pickupDate: pickupDetails.date || '',
-        pickupTime: pickupDetails.time || '',
+        customerName: customerInfo?.name || '',
+        customerEmail: customerInfo?.email || '',
+        customerPhone: customerInfo?.phone || '',
+        pickupDate: pickupDetails?.date || '',
+        pickupTime: pickupDetails?.time || '',
         cartItems: JSON.stringify(cart),
         totalAmount: totalAmount.toString(),
       },
       return_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/order-confirmation?session_id={CHECKOUT_SESSION_ID}`,
-    });
+    };
+
+    // Only add customer_email if we have it
+    if (customerInfo?.email && customerInfo.email.trim() !== '') {
+      sessionConfig.customer_email = customerInfo.email.trim();
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     console.log('Stripe session created:', session.id);
     res.json({ clientSecret: session.client_secret });
