@@ -8,8 +8,7 @@ const PORT = process.env.PORT || 5000;
 
 // Simple admin credentials
 const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = 'defiant2024'; // Change this to something secure
-const scheduleRoutes = require('./routes/scheduleRoutes');
+const ADMIN_PASSWORD = 'defiant2024';
 
 // CORS Middleware - MUST BE BEFORE OTHER MIDDLEWARE
 app.use(cors({
@@ -19,10 +18,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Body parser middleware
+// IMPORTANT: Webhook route MUST come BEFORE express.json() middleware
+// because Stripe needs the raw body for signature verification
+app.use('/api/webhooks', require('./routes/webhookRoutes'));
+
+// Body parser middleware (comes AFTER webhook route)
 app.use(express.json());
 
-// Routes
+// Other routes
+const scheduleRoutes = require('./routes/scheduleRoutes');
 app.use('/api/schedule', scheduleRoutes);
 app.use('/api/menu', require('./routes/menuRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
@@ -37,7 +41,6 @@ app.post('/admin/login', (req, res) => {
   const { username, password } = req.body;
   
   if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-    // Generate simple session token
     const sessionToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     activeSessions.add(sessionToken);
     
@@ -68,7 +71,7 @@ const requireAuth = (req, res, next) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   
   if (token && activeSessions.has(token)) {
-    next(); // User is authenticated
+    next();
   } else {
     res.status(401).json({ 
       success: false, 
@@ -119,7 +122,8 @@ app.get('/', (req, res) => {
       login: 'POST /admin/login',
       logout: 'POST /admin/logout',
       check: 'GET /admin/check',
-      health: 'GET /api/health'
+      health: 'GET /api/health',
+      webhook: 'POST /api/webhooks/stripe'
     }
   });
 });
