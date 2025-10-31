@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Order = require('../models/Order');
-const { sendOrderConfirmation, sendAdminNotification } = require('../utils/emailService');
+const { sendOrderConfirmation, sendAdminNotification } = require('../services/emailService');
 
 // Webhook endpoint - MUST use raw body for signature verification
 router.post('/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
