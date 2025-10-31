@@ -35,7 +35,6 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
           cartItems = JSON.parse(metadata.cartData || '[]');
         } catch (parseError) {
           console.error('❌ Error parsing cart data:', parseError);
-          // Fallback to empty array if parse fails
           cartItems = [];
         }
 
@@ -51,6 +50,17 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
           selectedAddons: item.selectedAddons || [],
         }));
 
+        // Convert pickupDate string to Date object
+        let pickupDate = null;
+        if (metadata.pickupDate) {
+          pickupDate = new Date(metadata.pickupDate);
+          // Validate the date
+          if (isNaN(pickupDate.getTime())) {
+            console.error('❌ Invalid pickupDate:', metadata.pickupDate);
+            pickupDate = null;
+          }
+        }
+
         const newOrder = new Order({
           customerName: session.customer_details?.name || metadata.customerName || 'Guest',
           customerEmail: session.customer_details?.email || metadata.customerEmail || '',
@@ -59,12 +69,12 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
           totalAmount: session.amount_total / 100, // Convert from cents to dollars
           status: 'new',
           paymentMethod: 'card',
-          pickupDate: metadata.pickupDate || '',
+          pickupDate: pickupDate,
           pickupTime: metadata.pickupTime || '',
           customerNotes: metadata.specialInstructions || '',
           stripeSessionId: session.id,
           stripePaymentIntentId: session.payment_intent,
-          isAdminOrder: false, // This is a customer order, not admin
+          isAdminOrder: false,
         });
 
         await newOrder.save();
