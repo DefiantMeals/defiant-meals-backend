@@ -30,10 +30,19 @@ router.post('/create-checkout-session', async (req, res) => {
       quantity: item.quantity,
     }));
 
-    // Create simplified cart summary for metadata (to stay under 500 char limit)
-    const cartSummary = cart.map(item => `${item.name} x${item.quantity}`).join(', ');
+    // Store FULL cart data as JSON string in metadata
+    const cartData = JSON.stringify(cart.map(item => ({
+      id: item.id,
+      originalId: item.originalId || item._id || item.id,
+      name: item.name,
+      price: item.price,
+      basePrice: item.basePrice || item.price,
+      quantity: item.quantity,
+      selectedFlavor: item.selectedFlavor || null,
+      selectedAddons: item.selectedAddons || [],
+    })));
 
-    // Create the checkout session - let Stripe collect email
+    // Create the checkout session
     const sessionConfig = {
       ui_mode: 'embedded',
       mode: 'payment',
@@ -44,8 +53,9 @@ router.post('/create-checkout-session', async (req, res) => {
         customerPhone: customerInfo?.phone || '',
         pickupDate: pickupDetails?.date || '',
         pickupTime: pickupDetails?.time || '',
-        cartSummary: cartSummary.substring(0, 450), // Truncate to be safe
+        cartData: cartData.substring(0, 490), // Stripe limit is 500 chars per metadata value
         totalAmount: totalAmount.toString(),
+        specialInstructions: pickupDetails?.notes || '',
       },
       return_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/order-confirmation?session_id={CHECKOUT_SESSION_ID}`,
     };

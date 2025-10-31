@@ -29,36 +29,46 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         // Create order from session data
         const metadata = session.metadata;
         
-        // Parse cart summary back into items
-        const cartItems = metadata.cartSummary ? 
-          metadata.cartSummary.split(', ').map(item => {
-            const match = item.match(/(.+) x(\d+)/);
-            return match ? { name: match[1], quantity: parseInt(match[2]) } : null;
-          }).filter(Boolean) : [];
+        // Parse the full cart data from JSON
+        let cartItems = [];
+        try {
+          cartItems = JSON.parse(metadata.cartData || '[]');
+        } catch (parseError) {
+          console.error('❌ Error parsing cart data:', parseError);
+          // Fallback to empty array if parse fails
+          cartItems = [];
+        }
+
+        // Map cart items to order item format
+        const orderItems = cartItems.map(item => ({
+          id: item.id,
+          originalId: item.originalId,
+          name: item.name,
+          price: item.price,
+          basePrice: item.basePrice,
+          quantity: item.quantity,
+          selectedFlavor: item.selectedFlavor || undefined,
+          selectedAddons: item.selectedAddons || [],
+        }));
 
         const newOrder = new Order({
           customerName: session.customer_details?.name || metadata.customerName || 'Guest',
           customerEmail: session.customer_details?.email || metadata.customerEmail || '',
           customerPhone: metadata.customerPhone || '',
-          items: cartItems.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: 0 // We don't have individual prices in metadata
-          })),
+          items: orderItems,
           totalAmount: session.amount_total / 100, // Convert from cents to dollars
           status: 'new',
-          paymentStatus: 'paid',
           paymentMethod: 'card',
           pickupDate: metadata.pickupDate || '',
           pickupTime: metadata.pickupTime || '',
-          specialInstructions: metadata.specialInstructions || '',
           customerNotes: metadata.specialInstructions || '',
           stripeSessionId: session.id,
-          stripePaymentIntentId: session.payment_intent
+          stripePaymentIntentId: session.payment_intent,
+          isAdminOrder: false, // This is a customer order, not admin
         });
 
         await newOrder.save();
-        console.log('✅ Order created:', newOrder.orderId);
+        console.log('✅ Order created:', newOrder._id);
 
         // Send email confirmations
         try {
