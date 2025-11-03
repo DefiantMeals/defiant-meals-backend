@@ -31,10 +31,25 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         
         console.log('📦 Session metadata:', JSON.stringify(metadata, null, 2));
         
-        // Parse the full cart data from JSON
+        // Reassemble cart data from chunks
+        let cartData = '';
+        const numChunks = parseInt(metadata.cartDataChunks || '0');
+        
+        console.log('📦 Number of cart data chunks:', numChunks);
+        
+        if (numChunks > 0) {
+          for (let i = 0; i < numChunks; i++) {
+            cartData += metadata[`cartData_${i}`] || '';
+          }
+        }
+        
+        console.log('📦 Reassembled cart data:', cartData);
+
+        // Parse the full cart data
         let cartItems = [];
         try {
-          cartItems = JSON.parse(metadata.cartData || '[]');
+          cartItems = JSON.parse(cartData || '[]');
+          console.log('✅ Parsed cart items:', cartItems);
         } catch (parseError) {
           console.error('❌ Error parsing cart data:', parseError);
           cartItems = [];
@@ -52,9 +67,10 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
           selectedAddons: item.selectedAddons || [],
         }));
 
+        console.log('📦 Order items:', orderItems);
+
         // Convert pickupDate string to Date object
         let pickupDate = null;
-        
         if (metadata.pickupDate) {
           console.log('🗓️ Raw pickupDate from metadata:', metadata.pickupDate);
           
@@ -128,4 +144,4 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
   res.json({ received: true });
 });
 
-module.exports = router;
+module.exports = router;odule.exports = router;
