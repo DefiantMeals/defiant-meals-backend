@@ -29,6 +29,8 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         // Create order from session data
         const metadata = session.metadata;
         
+        console.log('📦 Session metadata:', JSON.stringify(metadata, null, 2));
+        
         // Parse the full cart data from JSON
         let cartItems = [];
         try {
@@ -52,13 +54,23 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
 
         // Convert pickupDate string to Date object
         let pickupDate = null;
+        
         if (metadata.pickupDate) {
+          console.log('🗓️ Raw pickupDate from metadata:', metadata.pickupDate);
+          
+          // Try parsing the date
           pickupDate = new Date(metadata.pickupDate);
+          
           // Validate the date
           if (isNaN(pickupDate.getTime())) {
-            console.error('❌ Invalid pickupDate:', metadata.pickupDate);
-            pickupDate = null;
+            console.error('❌ Invalid pickupDate, using current date as fallback');
+            pickupDate = new Date(); // Fallback to current date
+          } else {
+            console.log('✅ Parsed pickupDate:', pickupDate.toISOString());
           }
+        } else {
+          console.warn('⚠️ No pickupDate in metadata, using current date');
+          pickupDate = new Date(); // Default to current date if not provided
         }
 
         const newOrder = new Order({
@@ -77,21 +89,25 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
           isAdminOrder: false,
         });
 
+        console.log('💾 Attempting to save order...');
         await newOrder.save();
-        console.log('✅ Order created:', newOrder._id);
+        console.log('✅ Order created successfully:', newOrder._id);
 
         // Send email confirmations
         try {
+          console.log('📧 Sending email confirmations...');
           await sendOrderConfirmation(newOrder);
           await sendAdminNotification(newOrder);
-          console.log('📧 Email confirmations sent successfully');
+          console.log('✅ Email confirmations sent successfully');
         } catch (emailError) {
-          console.error('❌ Error sending emails:', emailError);
+          console.error('❌ Error sending emails:', emailError.message);
+          console.error('Email error stack:', emailError.stack);
           // Don't fail the webhook if emails fail
         }
 
       } catch (error) {
-        console.error('❌ Error creating order:', error);
+        console.error('❌ Error creating order:', error.message);
+        console.error('Full error:', error);
         // Don't return error to Stripe - we don't want them to retry
       }
       break;
