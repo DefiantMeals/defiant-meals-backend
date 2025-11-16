@@ -12,9 +12,9 @@ const ADMIN_PASSWORD = 'defiant2024';
 
 // CORS Middleware - MUST BE BEFORE OTHER MIDDLEWARE
 app.use(cors({
-  origin: ['https://defiantmeals.com', 'https://defiant-mealprep-frontend.netlify.app', 'http://localhost:5173'],
+  origin: ['https://defiantmeals.com', 'https://defiant-mealprep-frontend.netlify.app', 'http://localhost:5173', 'http://localhost:3000'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -32,6 +32,7 @@ app.use('/api/menu', require('./routes/menuRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
+app.use('/api/grab-and-go', require('./routes/grabAndGoRoutes'));
 
 // Simple session tracking (in memory - for development only)
 const activeSessions = new Set();
@@ -123,7 +124,8 @@ app.get('/', (req, res) => {
       logout: 'POST /admin/logout',
       check: 'GET /admin/check',
       health: 'GET /api/health',
-      webhook: 'POST /api/webhooks/stripe'
+      webhook: 'POST /api/webhooks/stripe',
+      grabAndGo: 'GET /api/grab-and-go/menu'
     }
   });
 });
