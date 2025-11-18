@@ -18,13 +18,14 @@ exports.getGrabAndGoMenu = async (req, res) => {
   }
 };
 
-// Create Stripe checkout session for Grab and Go (REDIRECT MODE)
+// Create Stripe checkout session for Grab and Go (REDIRECT MODE with EMAIL)
 exports.createCheckoutSession = async (req, res) => {
   try {
-    const { items } = req.body;
+    const { items, customerEmail } = req.body;
 
     console.log('🛒 Creating Grab & Go checkout session with:', {
-      items: items?.length || 0
+      items: items?.length || 0,
+      customerEmail: customerEmail
     });
 
     // Validate items
@@ -90,6 +91,7 @@ exports.createCheckoutSession = async (req, res) => {
     // Create metadata with chunks
     const metadata = {
       orderType: 'grab-and-go',
+      customerEmail: customerEmail || '',
       totalAmount: totalAmount.toString(),
     };
 
@@ -106,19 +108,27 @@ exports.createCheckoutSession = async (req, res) => {
     metadata.cartDataChunks = chunks.length.toString();
 
     console.log('📦 Metadata chunks:', chunks.length);
+    console.log('📧 Customer email:', customerEmail);
 
-    // Create session config for REDIRECT mode (not embedded)
-    const session = await stripe.checkout.sessions.create({
+    // Create session config for REDIRECT mode with customer email
+    const sessionConfig = {
       mode: 'payment',
       line_items: lineItems,
       metadata: metadata,
       success_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/grab-and-go/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/grab-and-go`,
-    });
+    };
+
+    // Add customer_email if provided
+    if (customerEmail && customerEmail.trim() !== '') {
+      sessionConfig.customer_email = customerEmail.trim();
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     console.log('✅ Grab & Go Stripe session created:', session.id);
     
-    // Return URL for redirect (not clientSecret)
+    // Return URL for redirect
     res.json({ url: session.url });
 
   } catch (error) {
