@@ -18,14 +18,24 @@ exports.getGrabAndGoMenu = async (req, res) => {
   }
 };
 
-// Create Stripe checkout session for Grab and Go
+// Create Stripe checkout session for Grab and Go (MATCHES PRE-ORDER FORMAT)
 exports.createCheckoutSession = async (req, res) => {
   try {
-    const { items } = req.body;
+    const { items, customerInfo } = req.body;
 
-    // Validate items and check inventory
+    console.log('🛒 Creating Grab & Go checkout session with:', {
+      items: items?.length || 0,
+      customerInfo: customerInfo
+    });
+
+    // Validate items
+    if (!items || items.length === 0) {
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+
     const lineItems = [];
     let totalAmount = 0;
+    const validatedItems = [];
 
     for (const item of items) {
       const menuItem = await Menu.findById(item.menuItemId);
@@ -54,41 +64,77 @@ exports.createCheckoutSession = async (req, res) => {
           currency: 'usd',
           product_data: {
             name: menuItem.name,
-            description: menuItem.description || 'Grab and Go item'
+            description: menuItem.description || 'Grab and Go item',
+            images: menuItem.imageUrl ? [menuItem.imageUrl] : []
           },
-          unit_amount: Math.round(menuItem.price * 100) // Convert to cents
+          unit_amount: Math.round(menuItem.price * 100)
         },
         quantity: item.quantity
       });
 
       totalAmount += menuItem.price * item.quantity;
+
+      // Store validated item data
+      validatedItems.push({
+        menuItemId: item.menuItemId,
+        name: menuItem.name,
+        price: menuItem.price,
+        quantity: item.quantity
+      });
     }
 
-    // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: lineItems,
-      mode: 'payment',
-      success_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/grab-and-go/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/grab-and-go`,
-      metadata: {
-        orderType: 'grab-and-go',
-        items: JSON.stringify(items),
-        totalAmount: totalAmount.toString()
-      }
-    });
+    // Create cart data string (matching pre-order format)
+    const cartData = JSON.stringify(validatedItems);
+    
+    console.log('🛒 Cart data:', cartData);
 
-    res.json({ 
-      sessionId: session.id,
-      url: session.url 
+    // Create metadata (matching pre-order format with chunks)
+    const metadata = {
+      orderType: 'grab-and-go',
+      customerName: customerInfo?.name || 'Guest',
+      customerEmail: customerInfo?.email || '',
+      customerPhone: customerInfo?.phone || '',
+      totalAmount: totalAmount.toString(),
+    };
+
+    // Split cartData into chunks (matching pre-order format)
+    const chunkSize = 450;
+    const chunks = [];
+    for (let i = 0; i < cartData.length; i += chunkSize) {
+      chunks.push(cartData.substring(i, i + chunkSize));
+    }
+
+    chunks.forEach((chunk, index) => {
+      metadata[`cartData_${index}`] = chunk;
     });
+    metadata.cartDataChunks = chunks.length.toString();
+
+    console.log('📦 Metadata chunks:', chunks.length);
+
+    // Create session config (MATCHES PRE-ORDER FORMAT EXACTLY)
+    const sessionConfig = {
+      ui_mode: 'embedded',
+      mode: 'payment',
+      line_items: lineItems,
+      metadata: metadata,
+      return_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/grab-and-go/success?session_id={CHECKOUT_SESSION_ID}`,
+    };
+
+    // Only add customer_email if we have it
+    if (customerInfo?.email && customerInfo.email.trim() !== '') {
+      sessionConfig.customer_email = customerInfo.email.trim();
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
+
+    console.log('✅ Grab & Go Stripe session created:', session.id);
+    
+    // Return clientSecret (matching pre-order format)
+    res.json({ clientSecret: session.client_secret });
 
   } catch (error) {
-    console.error('Error creating Stripe checkout session:', error);
-    res.status(500).json({ 
-      message: 'Error creating checkout session',
-      error: error.message 
-    });
+    console.error('❌ Grab & Go session creation error:', error);
+    res.status(500).json({ error: error.message });
   }
 };
 
