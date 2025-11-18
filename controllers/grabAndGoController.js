@@ -18,14 +18,13 @@ exports.getGrabAndGoMenu = async (req, res) => {
   }
 };
 
-// Create Stripe checkout session for Grab and Go (MATCHES PRE-ORDER FORMAT)
+// Create Stripe checkout session for Grab and Go (REDIRECT MODE)
 exports.createCheckoutSession = async (req, res) => {
   try {
-    const { items, customerInfo } = req.body;
+    const { items } = req.body;
 
     console.log('🛒 Creating Grab & Go checkout session with:', {
-      items: items?.length || 0,
-      customerInfo: customerInfo
+      items: items?.length || 0
     });
 
     // Validate items
@@ -83,21 +82,18 @@ exports.createCheckoutSession = async (req, res) => {
       });
     }
 
-    // Create cart data string (matching pre-order format)
+    // Create cart data string
     const cartData = JSON.stringify(validatedItems);
     
     console.log('🛒 Cart data:', cartData);
 
-    // Create metadata (matching pre-order format with chunks)
+    // Create metadata with chunks
     const metadata = {
       orderType: 'grab-and-go',
-      customerName: customerInfo?.name || 'Guest',
-      customerEmail: customerInfo?.email || '',
-      customerPhone: customerInfo?.phone || '',
       totalAmount: totalAmount.toString(),
     };
 
-    // Split cartData into chunks (matching pre-order format)
+    // Split cartData into chunks
     const chunkSize = 450;
     const chunks = [];
     for (let i = 0; i < cartData.length; i += chunkSize) {
@@ -111,26 +107,19 @@ exports.createCheckoutSession = async (req, res) => {
 
     console.log('📦 Metadata chunks:', chunks.length);
 
-    // Create session config (MATCHES PRE-ORDER FORMAT EXACTLY)
-    const sessionConfig = {
-      ui_mode: 'embedded',
+    // Create session config for REDIRECT mode (not embedded)
+    const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: lineItems,
       metadata: metadata,
-      return_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/grab-and-go/success?session_id={CHECKOUT_SESSION_ID}`,
-    };
-
-    // Only add customer_email if we have it
-    if (customerInfo?.email && customerInfo.email.trim() !== '') {
-      sessionConfig.customer_email = customerInfo.email.trim();
-    }
-
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+      success_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/grab-and-go/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/grab-and-go`,
+    });
 
     console.log('✅ Grab & Go Stripe session created:', session.id);
     
-    // Return clientSecret (matching pre-order format)
-    res.json({ clientSecret: session.client_secret });
+    // Return URL for redirect (not clientSecret)
+    res.json({ url: session.url });
 
   } catch (error) {
     console.error('❌ Grab & Go session creation error:', error);
