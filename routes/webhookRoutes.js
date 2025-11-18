@@ -35,12 +35,37 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
         if (metadata.orderType === 'grab-and-go') {
           console.log('🛒 Processing Grab and Go order');
           
-          // Parse Grab and Go items
-          const items = JSON.parse(metadata.items || '[]');
+          // Reassemble cart data from chunks (SAME AS PRE-ORDERS)
+          let cartData = '';
+          const numChunks = parseInt(metadata.cartDataChunks || '0');
+          
+          console.log('📦 Number of cart data chunks:', numChunks);
+          
+          if (numChunks > 0) {
+            for (let i = 0; i < numChunks; i++) {
+              cartData += metadata[`cartData_${i}`] || '';
+            }
+          }
+          
+          console.log('📦 Reassembled cart data:', cartData);
+
+          // Parse items
+          let items = [];
+          try {
+            items = JSON.parse(cartData || '[]');
+            console.log('✅ Parsed Grab & Go items:', items);
+          } catch (parseError) {
+            console.error('❌ Error parsing cart data:', parseError);
+            items = [];
+          }
+
           const totalAmount = parseFloat(metadata.totalAmount || '0');
 
           // Create Grab and Go order
           const grabAndGoOrder = new GrabAndGoOrder({
+            customerName: session.customer_details?.name || metadata.customerName || 'Guest',
+            customerEmail: session.customer_details?.email || metadata.customerEmail || '',
+            customerPhone: metadata.customerPhone || '',
             items: items,
             totalAmount: totalAmount,
             stripeSessionId: session.id,
@@ -58,6 +83,16 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
               { $inc: { inventory: -item.quantity } }
             );
             console.log(`📦 Reduced inventory for ${item.name} by ${item.quantity}`);
+          }
+
+          // Send email confirmations
+          try {
+            console.log('📧 Sending Grab & Go email confirmations...');
+            await sendOrderConfirmation(grabAndGoOrder);
+            await sendAdminNotification(grabAndGoOrder);
+            console.log('✅ Email confirmations sent successfully');
+          } catch (emailError) {
+            console.error('❌ Error sending emails:', emailError.message);
           }
 
         } else {
