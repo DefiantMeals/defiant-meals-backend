@@ -7,18 +7,22 @@ const sendOrderConfirmation = async (order) => {
   try {
     // Handle both data structures
     const customerEmail = order.customerEmail || order.customer?.email;
-    const customerName = order.customerName || order.customer?.name;
+    const customerName = order.customerName || order.customer?.name || 'Guest';
     const customerPhone = order.customerPhone || order.customer?.phone;
     const totalAmount = order.totalAmount || order.total;
 
-    if (!customerEmail) {
-      console.error('No customer email found in order');
-      return false;
+    // Skip customer email for Grab & Go orders without email
+    if (!customerEmail || customerEmail === '') {
+      console.log('⏭️ Skipping customer email (no email provided - likely Grab & Go)');
+      return true; // Return true so it doesn't break the flow
     }
 
     const itemsList = order.items.map(item => 
       `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`
     ).join('\n');
+
+    // Check if this is a Grab & Go order (no pickupDate)
+    const isGrabAndGo = !order.pickupDate;
 
     const emailData = {
       from: 'Defiant Meals <orders@defiantmeals.com>',
@@ -32,9 +36,13 @@ const sendOrderConfirmation = async (order) => {
             <h2>Order #${order._id.toString().slice(-8)}</h2>
             <p><strong>Customer:</strong> ${customerName}</p>
             <p><strong>Email:</strong> ${customerEmail}</p>
-            <p><strong>Phone:</strong> ${customerPhone}</p>
-            <p><strong>Pickup Date:</strong> ${new Date(order.pickupDate).toLocaleDateString()}</p>
-            <p><strong>Pickup Time:</strong> ${order.pickupTime}</p>
+            ${customerPhone ? `<p><strong>Phone:</strong> ${customerPhone}</p>` : ''}
+            ${!isGrabAndGo ? `
+              <p><strong>Pickup Date:</strong> ${new Date(order.pickupDate).toLocaleDateString()}</p>
+              <p><strong>Pickup Time:</strong> ${order.pickupTime}</p>
+            ` : `
+              <p><strong>Order Type:</strong> Grab & Go</p>
+            `}
           </div>
 
           <div style="background: #fff; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px;">
@@ -53,7 +61,10 @@ const sendOrderConfirmation = async (order) => {
 
           <div style="text-align: center; margin: 30px 0; padding: 20px; background: #ecfdf5; border-radius: 8px;">
             <h3 style="color: #059669;">Thank You for Your Order!</h3>
-            <p>We'll have your fresh meals ready for pickup at the scheduled time.</p>
+            ${!isGrabAndGo ? 
+              `<p>We'll have your fresh meals ready for pickup at the scheduled time.</p>` :
+              `<p>Your order has been received and paid!</p>`
+            }
             <p style="margin-top: 15px; color: #6b7280;">Questions? Reply to this email or call us at 913-585-5126</p>
           </div>
         </div>
@@ -80,30 +91,37 @@ const sendOrderConfirmation = async (order) => {
 const sendAdminNotification = async (order) => {
   try {
     // Handle both data structures
-    const customerEmail = order.customerEmail || order.customer?.email;
-    const customerName = order.customerName || order.customer?.name;
-    const customerPhone = order.customerPhone || order.customer?.phone;
+    const customerEmail = order.customerEmail || order.customer?.email || 'No email provided';
+    const customerName = order.customerName || order.customer?.name || 'Guest';
+    const customerPhone = order.customerPhone || order.customer?.phone || 'No phone provided';
     const totalAmount = order.totalAmount || order.total;
 
     const itemsList = order.items.map(item => 
       `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`
     ).join('\n');
 
+    // Check if this is a Grab & Go order
+    const isGrabAndGo = !order.pickupDate;
+
     const emailData = {
       from: 'Defiant Meals <orders@defiantmeals.com>',
       to: ['defiantmealsmenu@gmail.com'], 
-      subject: `🔔 New Order #${order._id.toString().slice(-8)} - $${totalAmount.toFixed(2)}`,
+      subject: `🔔 New ${isGrabAndGo ? 'Grab & Go ' : ''}Order #${order._id.toString().slice(-8)} - $${totalAmount.toFixed(2)}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h1 style="color: #dc2626; text-align: center;">🔔 New Order Received!</h1>
+          <h1 style="color: #dc2626; text-align: center;">🔔 New ${isGrabAndGo ? 'Grab & Go ' : ''}Order Received!</h1>
           
           <div style="background: #fee2e2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0;">
             <h2>Order #${order._id.toString().slice(-8)}</h2>
             <p><strong>Customer:</strong> ${customerName}</p>
             <p><strong>Email:</strong> ${customerEmail}</p>
             <p><strong>Phone:</strong> ${customerPhone}</p>
-            <p><strong>Pickup Date:</strong> ${new Date(order.pickupDate).toLocaleDateString()}</p>
-            <p><strong>Pickup Time:</strong> ${order.pickupTime}</p>
+            ${!isGrabAndGo ? `
+              <p><strong>Pickup Date:</strong> ${new Date(order.pickupDate).toLocaleDateString()}</p>
+              <p><strong>Pickup Time:</strong> ${order.pickupTime}</p>
+            ` : `
+              <p><strong>Order Type:</strong> Grab & Go (Immediate)</p>
+            `}
             <p><strong>Payment:</strong> ${order.paymentMethod || 'Card'}</p>
           </div>
 

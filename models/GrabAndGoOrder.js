@@ -22,6 +22,20 @@ const grabAndGoOrderItemSchema = new mongoose.Schema({
 });
 
 const grabAndGoOrderSchema = new mongoose.Schema({
+  // Customer information
+  customerName: {
+    type: String,
+    default: 'Guest'
+  },
+  customerEmail: {
+    type: String,
+    default: ''
+  },
+  customerPhone: {
+    type: String,
+    default: ''
+  },
+  
   // Order items
   items: [grabAndGoOrderItemSchema],
   
