@@ -20,8 +20,7 @@ app.use(cors({
 
 // IMPORTANT: Webhook route MUST come BEFORE express.json() middleware
 // because Stripe needs the raw body for signature verification
-
-app.use('/api/webhook', require('./routes/webhookRoutes'));
+app.use('/api/webhooks', require('./routes/webhookRoutes'));
 
 // Body parser middleware (comes AFTER webhook route)
 app.use(express.json());
