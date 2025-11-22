@@ -1,0 +1,8 @@
+[33mcommit 5dd341c9ce46ff1457835591103953d594b2f481[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: Nicole Babb <defiantmealsmenu@gmail.com>
+Date:   Wed Nov 19 05:29:09 2025 +0700
+
+    Add email support to Grab & Go checkout session
+
+ controllers/grabAndGoController.js | 24 [32m+++++++++++++++++[m[31m-------[m
+ 1 file changed, 17 insertions(+), 7 deletions(-)

@@ -67,6 +67,11 @@ const menuSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0
+    },
+    // Tax classification field
+    isFood: {
+      type: Boolean,
+      required: true
     }
   },
   { timestamps: true }
