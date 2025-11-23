@@ -5,12 +5,14 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 // Create Stripe Checkout Session (for embedded checkout form)
 router.post('/create-checkout-session', async (req, res) => {
   try {
-    const { cart, customerInfo, pickupDetails, totalAmount } = req.body;
+    const { cart, customerInfo, pickupDetails, subtotal, taxAmount, totalAmount } = req.body;
 
     console.log('📦 Creating checkout session with:', {
       cartItems: cart?.length || 0,
       customerInfo: customerInfo,
       pickupDetails: pickupDetails,
+      subtotal: subtotal,
+      taxAmount: taxAmount,
       totalAmount: totalAmount
     });
 
@@ -23,7 +25,7 @@ router.post('/create-checkout-session', async (req, res) => {
       return res.status(400).json({ error: 'Invalid order amount' });
     }
 
-    // Create line items from cart
+    // Create line items from cart (menu items only, no tax yet)
     const lineItems = cart.map(item => ({
       price_data: {
         currency: 'usd',
@@ -37,6 +39,21 @@ router.post('/create-checkout-session', async (req, res) => {
       quantity: item.quantity,
     }));
 
+    // Add tax as a separate line item
+    if (taxAmount && taxAmount > 0) {
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Tax',
+            description: 'Kansas sales tax (3% food, 9.5% non-food)',
+          },
+          unit_amount: Math.round(taxAmount * 100), // Convert to cents
+        },
+        quantity: 1,
+      });
+    }
+
     // Store FULL cart data as JSON string
     const cartData = JSON.stringify(cart.map(item => ({
       id: item.id,
@@ -47,6 +64,7 @@ router.post('/create-checkout-session', async (req, res) => {
       quantity: item.quantity,
       selectedFlavor: item.selectedFlavor || null,
       selectedAddons: item.selectedAddons || [],
+      isFood: item.isFood,
     })));
 
     console.log('📦 Full cart data length:', cartData.length);
@@ -59,6 +77,8 @@ router.post('/create-checkout-session', async (req, res) => {
       customerPhone: customerInfo?.phone || '',
       pickupDate: pickupDetails?.date || '',
       pickupTime: pickupDetails?.time || '',
+      subtotal: subtotal?.toString() || '0',
+      taxAmount: taxAmount?.toString() || '0',
       totalAmount: totalAmount.toString(),
       specialInstructions: pickupDetails?.notes || '',
     };
@@ -96,6 +116,7 @@ router.post('/create-checkout-session', async (req, res) => {
     const session = await stripe.checkout.sessions.create(sessionConfig);
 
     console.log('✅ Stripe session created:', session.id);
+    console.log('✅ Total amount charged:', totalAmount);
     res.json({ clientSecret: session.client_secret });
   } catch (error) {
     console.error('❌ Stripe session creation error:', error);
