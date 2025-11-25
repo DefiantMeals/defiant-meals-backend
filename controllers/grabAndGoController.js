@@ -58,6 +58,9 @@ exports.createCheckoutSession = async (req, res) => {
         });
       }
 
+      // USE THE FRONTEND PRICE (which includes tax) instead of database price
+      const priceWithTax = item.price; // Frontend already calculated tax
+
       // Add to line items for Stripe
       lineItems.push({
         price_data: {
@@ -67,18 +70,18 @@ exports.createCheckoutSession = async (req, res) => {
             description: menuItem.description || 'Grab and Go item',
             images: menuItem.imageUrl ? [menuItem.imageUrl] : []
           },
-          unit_amount: Math.round(menuItem.price * 100)
+          unit_amount: Math.round(priceWithTax * 100) // Use tax-inclusive price from frontend
         },
         quantity: item.quantity
       });
 
-      totalAmount += menuItem.price * item.quantity;
+      totalAmount += priceWithTax * item.quantity;
 
-      // Store validated item data
+      // Store validated item data with tax-inclusive price
       validatedItems.push({
         menuItemId: item.menuItemId,
         name: menuItem.name,
-        price: menuItem.price,
+        price: priceWithTax, // Save tax-inclusive price
         quantity: item.quantity
       });
     }

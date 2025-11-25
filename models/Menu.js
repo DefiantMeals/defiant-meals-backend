@@ -58,7 +58,11 @@ const menuSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
-    // Grab and Go fields
+    // Menu display controls
+    showOnPreOrder: {
+      type: Boolean,
+      default: true  // Default to showing on pre-order menu
+    },
     isGrabAndGo: {
       type: Boolean,
       default: false
