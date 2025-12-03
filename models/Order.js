@@ -127,8 +127,8 @@ orderSchema.statics.getOrderingDeadline = function(pickupDate) {
   // Go back 8 days from pickup
   deadline.setDate(pickup.getDate() - 8);
   
-  // Set to noon (12:00 PM) on that day
-  deadline.setHours(12, 0, 0, 0);
+  // Set to midnight (23:59:59) on that day
+  deadline.setHours(23, 59, 59, 999);
   
   return deadline;
 };
@@ -153,10 +153,10 @@ orderSchema.statics.validatePickupDate = function(pickupDate) {
     if (hoursUntilDeadline <= 24) {
       message = `Ordering closes in ${hoursUntilDeadline} hours (${deadline.toLocaleString()})`;
     } else {
-      message = `Ordering closes at noon on ${deadline.toLocaleDateString()}`;
+      message = `Ordering closes at midnight on ${deadline.toLocaleDateString()}`;
     }
   } else {
-    message = `Ordering closed on ${deadline.toLocaleDateString()} at noon. Please select a different pickup date.`;
+    message = `Ordering closed on ${deadline.toLocaleDateString()} at midnight. Please select a different pickup date.`;
   }
   
   return {
