@@ -32,6 +32,7 @@ app.use('/api/menu', require('./routes/menuRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/categories', require('./routes/categoryRoutes'));
 app.use('/api/payments', require('./routes/paymentRoutes'));
+app.use('/api/contact', require('./routes/contactRoutes'));
 
 // Simple session tracking (in memory - for development only)
 const activeSessions = new Set();

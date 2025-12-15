@@ -48,6 +48,7 @@ const menuSchema = new mongoose.Schema(
     protein: { type: String, default: '' },
     fats: { type: String, default: '' },
     carbs: { type: String, default: '' },
+    servingSize: { type: String, default: '' },
     flavorOptions: [flavorOptionSchema],
     addonOptions: [addonOptionSchema],
     allowFlavorCustomization: {
