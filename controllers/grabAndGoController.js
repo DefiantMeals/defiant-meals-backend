@@ -1,13 +1,13 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const GrabAndGoItem = require('../models/GrabAndGoItem');
+const Menu = require('../models/Menu');
 const GrabAndGoOrder = require('../models/GrabAndGoOrder');
 
 // GET /api/grab-and-go/menu - Get all available Grab & Go items
 exports.getGrabAndGoMenu = async (req, res) => {
   try {
-    // Get items that are available and have inventory > 0
-    const items = await GrabAndGoItem.find({
-      available: true,
+    // Get menu items that are Grab & Go and have inventory > 0
+    const items = await Menu.find({
+      isGrabAndGo: true,
       inventory: { $gt: 0 }
     }).sort({ name: 1 });
 
@@ -96,7 +96,7 @@ exports.createCheckoutSession = async (req, res) => {
 
     for (const item of items) {
       // Verify the item exists and has sufficient inventory
-      const dbItem = await GrabAndGoItem.findById(item.menuItemId);
+      const dbItem = await Menu.findById(item.menuItemId);
 
       if (!dbItem) {
         return res.status(400).json({
@@ -230,7 +230,7 @@ exports.handleSuccessfulPayment = async (session) => {
 
     // Decrement inventory for each item
     for (const item of orderItems) {
-      await GrabAndGoItem.findByIdAndUpdate(
+      await Menu.findByIdAndUpdate(
         item.menuItemId,
         { $inc: { inventory: -item.quantity } }
       );
