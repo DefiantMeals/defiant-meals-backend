@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Order = require('../models/Order');
-const { sendOrderConfirmation, sendAdminNotification } = require('../services/emailService');
+const GrabAndGoOrder = require('../models/GrabAndGoOrder');
+const Menu = require('../models/Menu');
+const { sendOrderConfirmation, sendAdminNotification, sendGrabAndGoConfirmation, sendGrabAndGoAdminNotification } = require('../services/emailService');
 
 // Webhook endpoint - MUST use raw body for signature verification
 router.post('/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -28,8 +30,53 @@ router.post('/stripe', express.raw({ type: 'application/json' }), async (req, re
       try {
         // Create order from session data
         const metadata = session.metadata;
-        
+
         console.log('📦 Session metadata:', JSON.stringify(metadata, null, 2));
+
+        // Check if this is a Grab & Go order
+        if (metadata.orderType === 'grab-and-go') {
+          console.log('🛒 Processing Grab & Go order...');
+
+          const orderItems = JSON.parse(metadata.orderItems || '[]');
+
+          // Create the Grab & Go order
+          const newGrabAndGoOrder = new GrabAndGoOrder({
+            customerEmail: session.customer_details?.email || metadata.customerEmail,
+            customerName: session.customer_details?.name || '',
+            items: orderItems,
+            totalAmount: session.amount_total / 100,
+            stripeSessionId: session.id,
+            stripePaymentIntentId: session.payment_intent,
+            status: 'paid'
+          });
+
+          await newGrabAndGoOrder.save();
+          console.log('✅ Grab & Go order created:', newGrabAndGoOrder._id);
+
+          // Decrement inventory for each item
+          for (const item of orderItems) {
+            await Menu.findByIdAndUpdate(
+              item.menuItemId,
+              { $inc: { inventory: -item.quantity } }
+            );
+          }
+          console.log('✅ Inventory updated');
+
+          // Send email confirmations for Grab & Go
+          try {
+            console.log('📧 Sending Grab & Go email confirmations...');
+            await sendGrabAndGoConfirmation(newGrabAndGoOrder);
+            await sendGrabAndGoAdminNotification(newGrabAndGoOrder);
+            console.log('✅ Grab & Go email confirmations sent successfully');
+          } catch (emailError) {
+            console.error('❌ Error sending Grab & Go emails:', emailError.message);
+            // Don't fail the webhook if emails fail
+          }
+
+          break; // Exit the switch case for Grab & Go
+        }
+
+        // Regular order processing continues below
         
         // Reassemble cart data from chunks
         let cartData = '';

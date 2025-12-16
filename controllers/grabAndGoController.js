@@ -1,5 +1,6 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Menu = require('../models/Menu');
+const GrabAndGoItem = require('../models/GrabAndGoItem');
 const GrabAndGoOrder = require('../models/GrabAndGoOrder');
 
 // GET /api/grab-and-go/menu - Get all available Grab & Go items

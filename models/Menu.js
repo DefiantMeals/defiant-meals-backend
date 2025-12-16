@@ -57,6 +57,16 @@ const menuSchema = new mongoose.Schema(
     allowAddonCustomization: {
       type: Boolean,
       default: false
+    },
+    // Grab & Go specific fields
+    isGrabAndGo: {
+      type: Boolean,
+      default: false
+    },
+    inventory: {
+      type: Number,
+      default: 0,
+      min: 0
     }
   },
   { timestamps: true }
