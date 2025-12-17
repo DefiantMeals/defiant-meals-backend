@@ -1,235 +1,246 @@
-const GrabAndGoOrder = require('../models/GrabAndGoOrder');
-const Menu = require('../models/Menu');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const Menu = require('../models/Menu');
+const GrabAndGoItem = require('../models/GrabAndGoItem');
+const GrabAndGoOrder = require('../models/GrabAndGoOrder');
 
-// Get all Grab and Go menu items (available items with inventory > 0)
+// GET /api/grab-and-go/menu - Get all available Grab & Go items
 exports.getGrabAndGoMenu = async (req, res) => {
   try {
+    // Get menu items that are Grab & Go and have inventory > 0
     const items = await Menu.find({
       isGrabAndGo: true,
-      available: true,
       inventory: { $gt: 0 }
-    }).sort({ category: 1, name: 1 });
-    
+    }).sort({ name: 1 });
+
     res.json(items);
   } catch (error) {
-    console.error('Error fetching Grab and Go menu:', error);
-    res.status(500).json({ message: 'Error fetching menu items' });
+    console.error('Error fetching Grab & Go menu:', error);
+    res.status(500).json({ message: error.message });
   }
 };
 
-// Create Stripe checkout session for Grab and Go (REDIRECT MODE with EMAIL)
+// GET /api/grab-and-go/menu/all - Get all Grab & Go items (admin)
+exports.getAllGrabAndGoItems = async (req, res) => {
+  try {
+    const items = await GrabAndGoItem.find().sort({ name: 1 });
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching all Grab & Go items:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// POST /api/grab-and-go/menu - Create a new Grab & Go item (admin)
+exports.createGrabAndGoItem = async (req, res) => {
+  try {
+    const newItem = new GrabAndGoItem(req.body);
+    await newItem.save();
+    res.status(201).json(newItem);
+  } catch (error) {
+    console.error('Error creating Grab & Go item:', error);
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// PUT /api/grab-and-go/menu/:id - Update a Grab & Go item (admin)
+exports.updateGrabAndGoItem = async (req, res) => {
+  try {
+    const updatedItem = await GrabAndGoItem.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedItem) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    res.json(updatedItem);
+  } catch (error) {
+    console.error('Error updating Grab & Go item:', error);
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// DELETE /api/grab-and-go/menu/:id - Delete a Grab & Go item (admin)
+exports.deleteGrabAndGoItem = async (req, res) => {
+  try {
+    const deletedItem = await GrabAndGoItem.findByIdAndDelete(req.params.id);
+
+    if (!deletedItem) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    res.json({ message: 'Item deleted successfully', deletedItem });
+  } catch (error) {
+    console.error('Error deleting Grab & Go item:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// POST /api/grab-and-go/create-checkout-session - Create Stripe checkout session
 exports.createCheckoutSession = async (req, res) => {
   try {
     const { items, customerEmail } = req.body;
 
-    console.log('🛒 Creating Grab & Go checkout session with:', {
-      items: items?.length || 0,
-      customerEmail: customerEmail
-    });
-
-    // Validate items
     if (!items || items.length === 0) {
-      return res.status(400).json({ error: 'Cart is empty' });
+      return res.status(400).json({ message: 'No items in cart' });
     }
 
+    if (!customerEmail) {
+      return res.status(400).json({ message: 'Customer email is required' });
+    }
+
+    // Verify inventory and build line items
     const lineItems = [];
-    let totalAmount = 0;
-    const validatedItems = [];
+    const orderItems = [];
 
     for (const item of items) {
-      const menuItem = await Menu.findById(item.menuItemId);
-      
-      if (!menuItem) {
-        return res.status(404).json({ 
-          message: `Menu item not found: ${item.name}` 
-        });
-      }
-      
-      if (!menuItem.isGrabAndGo) {
-        return res.status(400).json({ 
-          message: `${menuItem.name} is not available for Grab and Go` 
-        });
-      }
-      
-      if (menuItem.inventory < item.quantity) {
-        return res.status(400).json({ 
-          message: `Insufficient inventory for ${menuItem.name}. Available: ${menuItem.inventory}` 
+      // Verify the item exists and has sufficient inventory
+      const dbItem = await Menu.findById(item.menuItemId);
+
+      if (!dbItem) {
+        return res.status(400).json({
+          message: `Item not found: ${item.name}`
         });
       }
 
-      // USE THE FRONTEND PRICE (which includes tax) instead of database price
-      const priceWithTax = item.price; // Frontend already calculated tax
+      if (dbItem.inventory < item.quantity) {
+        return res.status(400).json({
+          message: `Insufficient inventory for ${item.name}. Available: ${dbItem.inventory}`
+        });
+      }
 
-      // Add to line items for Stripe
+      // Build Stripe line item (price is already with tax from frontend)
       lineItems.push({
         price_data: {
           currency: 'usd',
           product_data: {
-            name: menuItem.name,
-            description: menuItem.description || 'Grab and Go item',
-            images: menuItem.imageUrl ? [menuItem.imageUrl] : []
+            name: item.name,
           },
-          unit_amount: Math.round(priceWithTax * 100) // Use tax-inclusive price from frontend
+          unit_amount: Math.round(item.price * 100), // Convert to cents
         },
-        quantity: item.quantity
+        quantity: item.quantity,
       });
 
-      totalAmount += priceWithTax * item.quantity;
-
-      // Store validated item data with tax-inclusive price
-      validatedItems.push({
+      // Build order item for metadata
+      orderItems.push({
         menuItemId: item.menuItemId,
-        name: menuItem.name,
-        price: priceWithTax, // Save tax-inclusive price
+        name: item.name,
+        price: item.price,
         quantity: item.quantity
       });
     }
 
-    // Create cart data string
-    const cartData = JSON.stringify(validatedItems);
-    
-    console.log('🛒 Cart data:', cartData);
+    // Calculate total
+    const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    // Create metadata with chunks
-    const metadata = {
-      orderType: 'grab-and-go',
-      customerEmail: customerEmail || '',
-      totalAmount: totalAmount.toString(),
-    };
-
-    // Split cartData into chunks
-    const chunkSize = 450;
-    const chunks = [];
-    for (let i = 0; i < cartData.length; i += chunkSize) {
-      chunks.push(cartData.substring(i, i + chunkSize));
-    }
-
-    chunks.forEach((chunk, index) => {
-      metadata[`cartData_${index}`] = chunk;
-    });
-    metadata.cartDataChunks = chunks.length.toString();
-
-    console.log('📦 Metadata chunks:', chunks.length);
-    console.log('📧 Customer email:', customerEmail);
-
-    // Create session config for REDIRECT mode with customer email
-    const sessionConfig = {
-      mode: 'payment',
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
       line_items: lineItems,
-      metadata: metadata,
+      mode: 'payment',
+      customer_email: customerEmail,
       success_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/grab-and-go/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL || 'https://defiantmeals.com'}/grab-and-go`,
-    };
+      metadata: {
+        orderType: 'grab-and-go',
+        customerEmail: customerEmail,
+        orderItems: JSON.stringify(orderItems),
+        totalAmount: total.toString()
+      }
+    });
 
-    // Add customer_email if provided
-    if (customerEmail && customerEmail.trim() !== '') {
-      sessionConfig.customer_email = customerEmail.trim();
-    }
-
-    const session = await stripe.checkout.sessions.create(sessionConfig);
-
-    console.log('✅ Grab & Go Stripe session created:', session.id);
-    
-    // Return URL for redirect
     res.json({ url: session.url });
-
   } catch (error) {
-    console.error('❌ Grab & Go session creation error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error creating checkout session:', error);
+    res.status(500).json({ message: error.message });
   }
 };
 
-// Create Grab and Go order (called by Stripe webhook after payment)
-exports.createGrabAndGoOrder = async (req, res) => {
+// GET /api/grab-and-go/orders - Get all Grab & Go orders (admin)
+exports.getAllOrders = async (req, res) => {
   try {
-    const { items, totalAmount, stripeSessionId, stripePaymentIntentId } = req.body;
+    const orders = await GrabAndGoOrder.find()
+      .sort({ createdAt: -1 })
+      .populate('items.menuItemId', 'name price');
 
-    // Validate inventory before creating order
-    for (const item of items) {
-      const menuItem = await Menu.findById(item.menuItemId);
-      
-      if (!menuItem) {
-        return res.status(404).json({ 
-          message: `Menu item ${item.name} not found` 
-        });
-      }
-      
-      if (!menuItem.isGrabAndGo) {
-        return res.status(400).json({ 
-          message: `${item.name} is not available for Grab and Go` 
-        });
-      }
-      
-      if (menuItem.inventory < item.quantity) {
-        return res.status(400).json({ 
-          message: `Insufficient inventory for ${item.name}. Available: ${menuItem.inventory}` 
-        });
-      }
+    res.json(orders);
+  } catch (error) {
+    console.error('Error fetching Grab & Go orders:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// PUT /api/grab-and-go/orders/:id/status - Update order status (admin)
+exports.updateOrderStatus = async (req, res) => {
+  try {
+    const { status, adminNotes } = req.body;
+
+    const validStatuses = ['pending', 'paid', 'ready', 'picked_up', 'cancelled'];
+    if (status && !validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: 'Invalid status. Valid options: ' + validStatuses.join(', ')
+      });
     }
 
+    const updateData = {};
+    if (status) updateData.status = status;
+    if (adminNotes !== undefined) updateData.adminNotes = adminNotes;
+
+    const updatedOrder = await GrabAndGoOrder.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json(updatedOrder);
+  } catch (error) {
+    console.error('Error updating order status:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Handle successful payment webhook (called from webhookRoutes)
+exports.handleSuccessfulPayment = async (session) => {
+  try {
+    const metadata = session.metadata;
+
+    if (metadata.orderType !== 'grab-and-go') {
+      return null; // Not a Grab & Go order
+    }
+
+    const orderItems = JSON.parse(metadata.orderItems || '[]');
+
     // Create the order
-    const order = new GrabAndGoOrder({
-      items,
-      totalAmount,
-      stripeSessionId,
-      stripePaymentIntentId,
+    const newOrder = new GrabAndGoOrder({
+      customerEmail: session.customer_details?.email || metadata.customerEmail,
+      customerName: session.customer_details?.name || '',
+      items: orderItems,
+      totalAmount: session.amount_total / 100,
+      stripeSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent,
       status: 'paid'
     });
 
-    await order.save();
+    await newOrder.save();
 
-    // Reduce inventory for each item
-    for (const item of items) {
+    // Decrement inventory for each item
+    for (const item of orderItems) {
       await Menu.findByIdAndUpdate(
         item.menuItemId,
         { $inc: { inventory: -item.quantity } }
       );
     }
 
-    res.status(201).json(order);
+    console.log('Grab & Go order created:', newOrder._id);
+    return newOrder;
   } catch (error) {
-    console.error('Error creating Grab and Go order:', error);
-    res.status(500).json({ message: 'Error creating order' });
-  }
-};
-
-// Get all Grab and Go orders (for admin)
-exports.getAllGrabAndGoOrders = async (req, res) => {
-  try {
-    const orders = await GrabAndGoOrder.find()
-      .populate('items.menuItemId')
-      .sort({ createdAt: -1 });
-    
-    res.json(orders);
-  } catch (error) {
-    console.error('Error fetching Grab and Go orders:', error);
-    res.status(500).json({ message: 'Error fetching orders' });
-  }
-};
-
-// Update Grab and Go order status
-exports.updateGrabAndGoOrderStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    const order = await GrabAndGoOrder.findByIdAndUpdate(
-      id,
-      { 
-        status,
-        ...(status === 'completed' && { completedAt: new Date() })
-      },
-      { new: true }
-    ).populate('items.menuItemId');
-
-    if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
-    res.json(order);
-  } catch (error) {
-    console.error('Error updating order status:', error);
-    res.status(500).json({ message: 'Error updating order' });
+    console.error('Error handling Grab & Go payment:', error);
+    throw error;
   }
 };

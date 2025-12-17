@@ -4,11 +4,10 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Order = require('../models/Order');
 const GrabAndGoOrder = require('../models/GrabAndGoOrder');
 const Menu = require('../models/Menu');
-const { sendOrderConfirmation, sendAdminNotification } = require('../services/emailService');
+const { sendOrderConfirmation, sendAdminNotification, sendGrabAndGoConfirmation, sendGrabAndGoAdminNotification } = require('../services/emailService');
 
 // Webhook endpoint - MUST use raw body for signature verification
-
-  router.post('/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -29,168 +28,150 @@ const { sendOrderConfirmation, sendAdminNotification } = require('../services/em
       console.log('💳 Payment successful for session:', session.id);
 
       try {
+        // Create order from session data
         const metadata = session.metadata;
+
         console.log('📦 Session metadata:', JSON.stringify(metadata, null, 2));
 
-        // Check if this is a Grab and Go order
+        // Check if this is a Grab & Go order
         if (metadata.orderType === 'grab-and-go') {
-          console.log('🛒 Processing Grab and Go order');
-          
-          // Reassemble cart data from chunks (SAME AS PRE-ORDERS)
-          let cartData = '';
-          const numChunks = parseInt(metadata.cartDataChunks || '0');
-          
-          console.log('📦 Number of cart data chunks:', numChunks);
-          
-          if (numChunks > 0) {
-            for (let i = 0; i < numChunks; i++) {
-              cartData += metadata[`cartData_${i}`] || '';
-            }
-          }
-          
-          console.log('📦 Reassembled cart data:', cartData);
+          console.log('🛒 Processing Grab & Go order...');
 
-          // Parse items
-          let items = [];
-          try {
-            items = JSON.parse(cartData || '[]');
-            console.log('✅ Parsed Grab & Go items:', items);
-          } catch (parseError) {
-            console.error('❌ Error parsing cart data:', parseError);
-            items = [];
-          }
+          const orderItems = JSON.parse(metadata.orderItems || '[]');
 
-          const totalAmount = parseFloat(metadata.totalAmount || '0');
-
-          // Create Grab and Go order
-          const grabAndGoOrder = new GrabAndGoOrder({
-            customerName: session.customer_details?.name || metadata.customerName || 'Guest',
-            customerEmail: session.customer_details?.email || metadata.customerEmail || '',
-            customerPhone: metadata.customerPhone || '',
-            items: items,
-            totalAmount: totalAmount,
+          // Create the Grab & Go order
+          const newGrabAndGoOrder = new GrabAndGoOrder({
+            customerEmail: session.customer_details?.email || metadata.customerEmail,
+            customerName: session.customer_details?.name || '',
+            items: orderItems,
+            totalAmount: session.amount_total / 100,
             stripeSessionId: session.id,
             stripePaymentIntentId: session.payment_intent,
             status: 'paid'
           });
 
-          await grabAndGoOrder.save();
-          console.log('✅ Grab and Go order created:', grabAndGoOrder._id);
+          await newGrabAndGoOrder.save();
+          console.log('✅ Grab & Go order created:', newGrabAndGoOrder._id);
 
-          // Reduce inventory for each item
-          for (const item of items) {
+          // Decrement inventory for each item
+          for (const item of orderItems) {
             await Menu.findByIdAndUpdate(
               item.menuItemId,
               { $inc: { inventory: -item.quantity } }
             );
-            console.log(`📦 Reduced inventory for ${item.name} by ${item.quantity}`);
           }
+          console.log('✅ Inventory updated');
 
-          // Send email confirmations
+          // Send email confirmations for Grab & Go
           try {
             console.log('📧 Sending Grab & Go email confirmations...');
-            await sendOrderConfirmation(grabAndGoOrder);
-            await sendAdminNotification(grabAndGoOrder);
-            console.log('✅ Email confirmations sent successfully');
+            await sendGrabAndGoConfirmation(newGrabAndGoOrder);
+            await sendGrabAndGoAdminNotification(newGrabAndGoOrder);
+            console.log('✅ Grab & Go email confirmations sent successfully');
           } catch (emailError) {
-            console.error('❌ Error sending emails:', emailError.message);
+            console.error('❌ Error sending Grab & Go emails:', emailError.message);
+            // Don't fail the webhook if emails fail
           }
 
-        } else {
-          // Regular meal prep order
-          console.log('🍱 Processing regular meal prep order');
-          
-          // Reassemble cart data from chunks
-          let cartData = '';
-          const numChunks = parseInt(metadata.cartDataChunks || '0');
-          
-          console.log('📦 Number of cart data chunks:', numChunks);
-          
-          if (numChunks > 0) {
-            for (let i = 0; i < numChunks; i++) {
-              cartData += metadata[`cartData_${i}`] || '';
-            }
+          break; // Exit the switch case for Grab & Go
+        }
+
+        // Regular order processing continues below
+        
+        // Reassemble cart data from chunks
+        let cartData = '';
+        const numChunks = parseInt(metadata.cartDataChunks || '0');
+        
+        console.log('📦 Number of cart data chunks:', numChunks);
+        
+        if (numChunks > 0) {
+          for (let i = 0; i < numChunks; i++) {
+            cartData += metadata[`cartData_${i}`] || '';
           }
+        }
+        
+        console.log('📦 Reassembled cart data:', cartData);
+
+        // Parse the full cart data
+        let cartItems = [];
+        try {
+          cartItems = JSON.parse(cartData || '[]');
+          console.log('✅ Parsed cart items:', cartItems);
+        } catch (parseError) {
+          console.error('❌ Error parsing cart data:', parseError);
+          cartItems = [];
+        }
+
+        // Map cart items to order item format
+        const orderItems = cartItems.map(item => ({
+          id: item.id,
+          originalId: item.originalId,
+          name: item.name,
+          price: item.price,
+          basePrice: item.basePrice,
+          quantity: item.quantity,
+          selectedFlavor: item.selectedFlavor || undefined,
+          selectedAddons: item.selectedAddons || [],
+        }));
+
+        console.log('📦 Order items:', orderItems);
+
+        // Convert pickupDate string to Date object
+        let pickupDate = null;
+        if (metadata.pickupDate) {
+          console.log('🗓️ Raw pickupDate from metadata:', metadata.pickupDate);
           
-          console.log('📦 Reassembled cart data:', cartData);
-
-          // Parse the full cart data
-          let cartItems = [];
-          try {
-            cartItems = JSON.parse(cartData || '[]');
-            console.log('✅ Parsed cart items:', cartItems);
-          } catch (parseError) {
-            console.error('❌ Error parsing cart data:', parseError);
-            cartItems = [];
-          }
-
-          // Map cart items to order item format
-          const orderItems = cartItems.map(item => ({
-            id: item.id,
-            originalId: item.originalId,
-            name: item.name,
-            price: item.price,
-            basePrice: item.basePrice,
-            quantity: item.quantity,
-            selectedFlavor: item.selectedFlavor || undefined,
-            selectedAddons: item.selectedAddons || [],
-          }));
-
-          console.log('📦 Order items:', orderItems);
-
-          // Convert pickupDate string to Date object
-          let pickupDate = null;
-          if (metadata.pickupDate) {
-            console.log('🗓️ Raw pickupDate from metadata:', metadata.pickupDate);
-            
-            pickupDate = new Date(metadata.pickupDate);
-            
-            if (isNaN(pickupDate.getTime())) {
-              console.error('❌ Invalid pickupDate, using current date as fallback');
-              pickupDate = new Date();
-            } else {
-              console.log('✅ Parsed pickupDate:', pickupDate.toISOString());
-            }
+          // Try parsing the date
+          pickupDate = new Date(metadata.pickupDate);
+          
+          // Validate the date
+          if (isNaN(pickupDate.getTime())) {
+            console.error('❌ Invalid pickupDate, using current date as fallback');
+            pickupDate = new Date(); // Fallback to current date
           } else {
-            console.warn('⚠️ No pickupDate in metadata, using current date');
-            pickupDate = new Date();
+            console.log('✅ Parsed pickupDate:', pickupDate.toISOString());
           }
+        } else {
+          console.warn('⚠️ No pickupDate in metadata, using current date');
+          pickupDate = new Date(); // Default to current date if not provided
+        }
 
-          const newOrder = new Order({
-            customerName: session.customer_details?.name || metadata.customerName || 'Guest',
-            customerEmail: session.customer_details?.email || metadata.customerEmail || '',
-            customerPhone: metadata.customerPhone || '',
-            items: orderItems,
-            totalAmount: session.amount_total / 100,
-            status: 'new',
-            paymentMethod: 'card',
-            pickupDate: pickupDate,
-            pickupTime: metadata.pickupTime || '',
-            customerNotes: metadata.specialInstructions || '',
-            stripeSessionId: session.id,
-            stripePaymentIntentId: session.payment_intent,
-            isAdminOrder: false,
-          });
+        const newOrder = new Order({
+          customerName: session.customer_details?.name || metadata.customerName || 'Guest',
+          customerEmail: session.customer_details?.email || metadata.customerEmail || '',
+          customerPhone: metadata.customerPhone || '',
+          items: orderItems,
+          totalAmount: session.amount_total / 100, // Convert from cents to dollars
+          status: 'new',
+          paymentMethod: 'card',
+          pickupDate: pickupDate,
+          pickupTime: metadata.pickupTime || '',
+          customerNotes: metadata.specialInstructions || '',
+          stripeSessionId: session.id,
+          stripePaymentIntentId: session.payment_intent,
+          isAdminOrder: false,
+        });
 
-          console.log('💾 Attempting to save order...');
-          await newOrder.save();
-          console.log('✅ Order created successfully:', newOrder._id);
+        console.log('💾 Attempting to save order...');
+        await newOrder.save();
+        console.log('✅ Order created successfully:', newOrder._id);
 
-          // Send email confirmations
-          try {
-            console.log('📧 Sending email confirmations...');
-            await sendOrderConfirmation(newOrder);
-            await sendAdminNotification(newOrder);
-            console.log('✅ Email confirmations sent successfully');
-          } catch (emailError) {
-            console.error('❌ Error sending emails:', emailError.message);
-            console.error('Email error stack:', emailError.stack);
-          }
+        // Send email confirmations
+        try {
+          console.log('📧 Sending email confirmations...');
+          await sendOrderConfirmation(newOrder);
+          await sendAdminNotification(newOrder);
+          console.log('✅ Email confirmations sent successfully');
+        } catch (emailError) {
+          console.error('❌ Error sending emails:', emailError.message);
+          console.error('Email error stack:', emailError.stack);
+          // Don't fail the webhook if emails fail
         }
 
       } catch (error) {
-        console.error('❌ Error processing order:', error.message);
+        console.error('❌ Error creating order:', error.message);
         console.error('Full error:', error);
+        // Don't return error to Stripe - we don't want them to retry
       }
       break;
 

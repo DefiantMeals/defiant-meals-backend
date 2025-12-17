@@ -33,22 +33,6 @@ const addonOptionSchema = new mongoose.Schema({
   available: {
     type: Boolean,
     default: true
-  },
-  calories: {
-    type: String,
-    default: ''
-  },
-  protein: {
-    type: String,
-    default: ''
-  },
-  carbs: {
-    type: String,
-    default: ''
-  },
-  fats: {
-    type: String,
-    default: ''
   }
 });
 
@@ -64,6 +48,7 @@ const menuSchema = new mongoose.Schema(
     protein: { type: String, default: '' },
     fats: { type: String, default: '' },
     carbs: { type: String, default: '' },
+    servingSize: { type: String, default: '' },
     flavorOptions: [flavorOptionSchema],
     addonOptions: [addonOptionSchema],
     allowFlavorCustomization: {
@@ -74,11 +59,7 @@ const menuSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
-    // Menu display controls
-    showOnPreOrder: {
-      type: Boolean,
-      default: true  // Default to showing on pre-order menu
-    },
+    // Grab & Go specific fields
     isGrabAndGo: {
       type: Boolean,
       default: false
@@ -87,11 +68,6 @@ const menuSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0
-    },
-    // Tax classification field
-    isFood: {
-      type: Boolean,
-      required: true
     }
   },
   { timestamps: true }

@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const grabAndGoOrderItemSchema = new mongoose.Schema({
   menuItemId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Menu',
+    ref: 'GrabAndGoItem',
     required: true
   },
   name: {
@@ -23,55 +23,43 @@ const grabAndGoOrderItemSchema = new mongoose.Schema({
 
 const grabAndGoOrderSchema = new mongoose.Schema({
   // Customer information
-  customerName: {
-    type: String,
-    default: 'Guest'
-  },
   customerEmail: {
     type: String,
-    default: ''
+    required: true
   },
-  customerPhone: {
+  customerName: {
     type: String,
     default: ''
   },
-  
+
   // Order items
   items: [grabAndGoOrderItemSchema],
-  
+
   // Payment information
   totalAmount: {
     type: Number,
     required: true
   },
-  
-  // Payment method and Stripe info
-  paymentMethod: {
-    type: String,
-    enum: ['card'],
-    default: 'card'
-  },
+
+  // Stripe session info
   stripeSessionId: {
     type: String
   },
   stripePaymentIntentId: {
     type: String
   },
-  
+
   // Order status
   status: {
     type: String,
-    enum: ['pending', 'paid', 'ready', 'completed', 'cancelled'],
+    enum: ['pending', 'paid', 'ready', 'picked_up', 'cancelled'],
     default: 'pending'
   },
-  
-  // Timestamps
-  orderDate: {
-    type: Date,
-    default: Date.now
-  },
-  completedAt: {
-    type: Date
+
+  // Admin notes
+  adminNotes: {
+    type: String,
+    default: ''
   }
 }, { timestamps: true });
 
