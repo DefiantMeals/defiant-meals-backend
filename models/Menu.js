@@ -33,6 +33,22 @@ const addonOptionSchema = new mongoose.Schema({
   available: {
     type: Boolean,
     default: true
+  },
+  protein: {
+    type: String,
+    default: ''
+  },
+  carbs: {
+    type: String,
+    default: ''
+  },
+  fats: {
+    type: String,
+    default: ''
+  },
+  calories: {
+    type: String,
+    default: ''
   }
 });
 
