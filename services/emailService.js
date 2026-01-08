@@ -17,9 +17,17 @@ const sendOrderConfirmation = async (order) => {
       return true; // Return true so it doesn't break the flow
     }
 
-    const itemsList = order.items.map(item => 
-      `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`
-    ).join('\n');
+    const itemsList = order.items.map(item => {
+      let itemText = `${item.quantity}x ${item.name}`;
+      if (item.selectedFlavor?.name) {
+        itemText += ` (${item.selectedFlavor.name})`;
+      }
+      if (item.selectedAddons && item.selectedAddons.length > 0) {
+        itemText += ` + ${item.selectedAddons.map(a => a.name).join(', ')}`;
+      }
+      itemText += ` - $${(item.price * item.quantity).toFixed(2)}`;
+      return itemText;
+    }).join('\n');
 
     // Check if this is a Grab & Go order (no pickupDate)
     const isGrabAndGo = !order.pickupDate;
@@ -96,9 +104,17 @@ const sendAdminNotification = async (order) => {
     const customerPhone = order.customerPhone || order.customer?.phone || 'No phone provided';
     const totalAmount = order.totalAmount || order.total;
 
-    const itemsList = order.items.map(item => 
-      `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`
-    ).join('\n');
+    const itemsList = order.items.map(item => {
+      let itemText = `${item.quantity}x ${item.name}`;
+      if (item.selectedFlavor?.name) {
+        itemText += ` (${item.selectedFlavor.name})`;
+      }
+      if (item.selectedAddons && item.selectedAddons.length > 0) {
+        itemText += ` + ${item.selectedAddons.map(a => a.name).join(', ')}`;
+      }
+      itemText += ` - $${(item.price * item.quantity).toFixed(2)}`;
+      return itemText;
+    }).join('\n');
 
     // Check if this is a Grab & Go order
     const isGrabAndGo = !order.pickupDate;
@@ -174,9 +190,17 @@ const sendGrabAndGoConfirmation = async (order) => {
       return false;
     }
 
-    const itemsList = order.items.map(item =>
-      `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`
-    ).join('\n');
+    const itemsList = order.items.map(item => {
+      let itemText = `${item.quantity}x ${item.name}`;
+      if (item.selectedFlavor?.name) {
+        itemText += ` (${item.selectedFlavor.name})`;
+      }
+      if (item.selectedAddons && item.selectedAddons.length > 0) {
+        itemText += ` + ${item.selectedAddons.map(a => a.name).join(', ')}`;
+      }
+      itemText += ` - $${(item.price * item.quantity).toFixed(2)}`;
+      return itemText;
+    }).join('\n');
 
     const emailData = {
       from: 'Defiant Meals <orders@defiantmeals.com>',
@@ -231,9 +255,17 @@ const sendGrabAndGoAdminNotification = async (order) => {
     const customerName = order.customerName || 'Guest';
     const totalAmount = order.totalAmount;
 
-    const itemsList = order.items.map(item =>
-      `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`
-    ).join('\n');
+    const itemsList = order.items.map(item => {
+      let itemText = `${item.quantity}x ${item.name}`;
+      if (item.selectedFlavor?.name) {
+        itemText += ` (${item.selectedFlavor.name})`;
+      }
+      if (item.selectedAddons && item.selectedAddons.length > 0) {
+        itemText += ` + ${item.selectedAddons.map(a => a.name).join(', ')}`;
+      }
+      itemText += ` - $${(item.price * item.quantity).toFixed(2)}`;
+      return itemText;
+    }).join('\n');
 
     const emailData = {
       from: 'Defiant Meals <orders@defiantmeals.com>',
