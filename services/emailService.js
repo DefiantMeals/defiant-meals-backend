@@ -223,6 +223,13 @@ const sendGrabAndGoConfirmation = async (order) => {
             <p style="text-align: right; font-size: 18px;"><strong>Total: $${totalAmount.toFixed(2)}</strong></p>
           </div>
 
+          ${order.customerNotes ? `
+            <div style="margin: 20px 0;">
+              <h3>Special Instructions:</h3>
+              <p style="background: #fef3c7; padding: 15px; border-radius: 4px;">${order.customerNotes}</p>
+            </div>
+          ` : ''}
+
           <div style="text-align: center; margin: 30px 0; padding: 20px; background: #ecfdf5; border-radius: 8px;">
             <h3 style="color: #059669;">Thank You for Your Order!</h3>
             <p>Your items are ready for pickup. Please visit our location to collect your order.</p>
@@ -288,6 +295,13 @@ const sendGrabAndGoAdminNotification = async (order) => {
             <hr style="margin: 20px 0;">
             <p style="text-align: right; font-size: 20px; color: #059669;"><strong>Total: $${totalAmount.toFixed(2)}</strong></p>
           </div>
+
+          ${order.customerNotes ? `
+            <div style="margin: 20px 0;">
+              <h3>Special Instructions:</h3>
+              <p style="background: #fef3c7; padding: 15px; border-radius: 4px;">${order.customerNotes}</p>
+            </div>
+          ` : ''}
 
           <div style="text-align: center; margin: 30px 0; padding: 20px; background: #eff6ff; border-radius: 8px;">
             <p style="font-size: 16px;">Check your admin dashboard to manage this order.</p>
