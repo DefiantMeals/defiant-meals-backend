@@ -8,9 +8,14 @@ exports.getGrabAndGoMenu = async (req, res) => {
   try {
     // Get menu items that are Grab & Go and have inventory > 0
     const items = await Menu.find({
-      available: true,
-      availableForGrabAndGo: true,
-      inventory: { $gt: 0 }
+      $and: [
+        { available: true },
+        { $or: [
+          { availableForGrabAndGo: true },
+          { availableForGrabAndGo: { $exists: false } }
+        ]},
+        { inventory: { $gt: 0 } }
+      ]
     }).sort({ name: 1 });
 
     res.json(items);
