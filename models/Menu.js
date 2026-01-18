@@ -85,6 +85,14 @@ const menuSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
+    availableForPreorders: {
+      type: Boolean,
+      default: true
+    },
+    availableForGrabAndGo: {
+      type: Boolean,
+      default: false
+    },
     inventory: {
       type: Number,
       default: 0,
